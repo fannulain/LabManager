@@ -1,0 +1,2330 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "LabManager REST API",
+    "description": "Formal REST API specification for LabManager (Educational Materials and Laboratory Manager).\nSupports unified user accounts, class workspace management, contextual role permissions (Administrator / Student),\nhierarchical subject and material organization, calendar deadline tracking, automated 7-day and 1-day reminders,\nand formal extension request workflows.\n",
+    "version": "1.0.0",
+    "contact": {
+      "name": "LabManager Engineering Team"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000/api/v1",
+      "description": "Local Mock / Development Server"
+    },
+    {
+      "url": "/api/v1",
+      "description": "Production Base URL"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "User registration, login, and profile operations (REQ-F-001)"
+    },
+    {
+      "name": "Classes",
+      "description": "Class workspace lifecycle and contextual membership (REQ-F-002, REQ-NF-002)"
+    },
+    {
+      "name": "Invites & Roles",
+      "description": "Joining classes via token and contextual role promotion (REQ-F-003, REQ-F-004)"
+    },
+    {
+      "name": "Subjects",
+      "description": "Hierarchical subject management within classes (REQ-F-005)"
+    },
+    {
+      "name": "Materials",
+      "description": "File (<500MB) and link attachments to subjects (REQ-F-006, REQ-NF-001)"
+    },
+    {
+      "name": "Calendar & Deadlines",
+      "description": "Calendar views and deadline tracking (REQ-F-007)"
+    },
+    {
+      "name": "Reminders",
+      "description": "Internal automated notification reminders (REQ-F-008)"
+    },
+    {
+      "name": "Extensions",
+      "description": "Deadline extension requests and administrator decisions (REQ-F-009, REQ-F-010)"
+    }
+  ],
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Register a new user account",
+        "description": "Creates a unified user account (REQ-F-001). The user starts with no global privileges, and dynamically assumes Administrator or Student roles per Class.\n",
+        "operationId": "registerUser",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRegistrationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User successfully registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthTokenResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "409": {
+            "description": "Email already registered",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                },
+                "example": {
+                  "type": "https://labmanager.edu/errors/conflict",
+                  "title": "Conflict",
+                  "status": 409,
+                  "detail": "A user with email 'alex@university.edu' already exists.",
+                  "instance": "/api/v1/auth/register"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntityError"
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Authenticate user and issue JWT token",
+        "description": "Validates email and password, returning a JWT token for authorized requests (REQ-F-001).",
+        "operationId": "loginUser",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserLoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthTokenResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Get current authenticated user profile",
+        "description": "Returns identity, metadata, and contextual class memberships with distinct roles (REQ-F-001, REQ-NF-002).",
+        "operationId": "getCurrentUser",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profile retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/classes": {
+      "get": {
+        "tags": ["Classes"],
+        "summary": "List all classes user participates in",
+        "description": "Returns all classes where the user is an Administrator or a Student, with clear role badges (REQ-F-002, REQ-NF-002).",
+        "operationId": "listClasses",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classes retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Classes"],
+        "summary": "Create a new class",
+        "description": "Creates a new Class container. The creator automatically becomes its Administrator (REQ-F-002).",
+        "operationId": "createClass",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Class created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntityError"
+          }
+        }
+      }
+    },
+    "/classes/{classId}": {
+      "get": {
+        "tags": ["Classes"],
+        "summary": "Get detailed class information",
+        "description": "Retrieves class metadata, user contextual role, and nested statistics (REQ-F-002).",
+        "operationId": "getClassById",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClassIdParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Class details retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassDetailResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/classes/{classId}/invites": {
+      "post": {
+        "tags": ["Invites & Roles"],
+        "summary": "Generate an invite link/token for the class",
+        "description": "Only an Administrator of the Class can generate invite links (REQ-F-003, BDD Scenario 1).",
+        "operationId": "generateInvite",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClassIdParam"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Invite generated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/invites/{token}/join": {
+      "post": {
+        "tags": ["Invites & Roles"],
+        "summary": "Join a class using an invite token",
+        "description": "A user navigates to the invite token/link and joins the Class with the 'Student' role (REQ-F-003, BDD Scenario 1).\n",
+        "operationId": "joinClassByInvite",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "description": "Unique invite token",
+            "schema": {
+              "type": "string",
+              "example": "inv_math101_abc123"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully joined class as Student",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JoinClassResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "description": "Invalid or expired invite token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                },
+                "example": {
+                  "type": "https://labmanager.edu/errors/not-found",
+                  "title": "Not Found",
+                  "status": 404,
+                  "detail": "Invite token 'inv_math101_abc123' does not exist or has expired.",
+                  "instance": "/api/v1/invites/inv_math101_abc123/join"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "User is already a member of this class",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                },
+                "example": {
+                  "type": "https://labmanager.edu/errors/conflict",
+                  "title": "Conflict",
+                  "status": 409,
+                  "detail": "User is already registered as a member in this class.",
+                  "instance": "/api/v1/invites/inv_math101_abc123/join"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/classes/{classId}/members": {
+      "get": {
+        "tags": ["Invites & Roles"],
+        "summary": "List all members of the class",
+        "description": "Lists users in the class along with their assigned contextual role (REQ-F-004).",
+        "operationId": "listClassMembers",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClassIdParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Member roster retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassMemberListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/classes/{classId}/members/{userId}/role": {
+      "patch": {
+        "tags": ["Invites & Roles"],
+        "summary": "Update member role (e.g. grant Administrator permissions)",
+        "description": "An Administrator can grant Administrator rights to another Student member in their class (REQ-F-004).\n",
+        "operationId": "updateMemberRole",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClassIdParam"
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "description": "Target user ID",
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "c79b90c2-5509-42b7-a36c-9226cbff207b"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Role updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassMemberResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntityError"
+          }
+        }
+      }
+    },
+    "/classes/{classId}/subjects": {
+      "get": {
+        "tags": ["Subjects"],
+        "summary": "List all subjects within a class",
+        "description": "Returns subjects strictly belonging to the specified class (REQ-F-005).",
+        "operationId": "listSubjects",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClassIdParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subjects retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Subjects"],
+        "summary": "Create a subject within a class",
+        "description": "Administrator adds a new Subject establishing parent-child hierarchy `Class -> Subject` (REQ-F-005).",
+        "operationId": "createSubject",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClassIdParam"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubjectCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Subject created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntityError"
+          }
+        }
+      }
+    },
+    "/classes/{classId}/subjects/{subjectId}": {
+      "get": {
+        "tags": ["Subjects"],
+        "summary": "Get subject details",
+        "description": "Retrieves single subject information under class (REQ-F-005).",
+        "operationId": "getSubjectById",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClassIdParam"
+          },
+          {
+            "$ref": "#/components/parameters/SubjectIdParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subject details retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/classes/{classId}/subjects/{subjectId}/materials": {
+      "get": {
+        "tags": ["Materials"],
+        "summary": "List materials under a subject",
+        "description": "Returns all educational resources and links for a subject (REQ-F-006).",
+        "operationId": "listMaterials",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClassIdParam"
+          },
+          {
+            "$ref": "#/components/parameters/SubjectIdParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Materials retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaterialListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Materials"],
+        "summary": "Upload a material file (<500MB) or create a link",
+        "description": "Administrator uploads a file (max 500MB) or external link resource (REQ-F-006, REQ-NF-001, BDD Scenario 3).\nIf file exceeds 500MB (524,288,000 bytes), HTTP 413 Payload Too Large is returned.\n",
+        "operationId": "createMaterial",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClassIdParam"
+          },
+          {
+            "$ref": "#/components/parameters/SubjectIdParam"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/MaterialFileUploadRequest"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MaterialLinkCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Material created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaterialResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "413": {
+            "description": "File size exceeds 500MB limit (REQ-NF-001, BDD Scenario 3)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                },
+                "example": {
+                  "type": "https://labmanager.edu/errors/file-too-large",
+                  "title": "Payload Too Large",
+                  "status": 413,
+                  "detail": "File exceeds the 500MB limit.",
+                  "instance": "/api/v1/classes/6c9f280b-2268-450a-8669-eecfc1dae290/subjects/495be23b-01a5-484d-a94f-4054a8677c7d/materials",
+                  "invalid_params": [
+                    {
+                      "name": "file",
+                      "reason": "Uploaded file size (629145600 bytes) exceeds maximum allowable limit of 524288000 bytes."
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntityError"
+          }
+        }
+      }
+    },
+    "/classes/{classId}/subjects/{subjectId}/materials/{materialId}": {
+      "get": {
+        "tags": ["Materials"],
+        "summary": "Get material details",
+        "description": "Returns metadata, deadline, and links for a specific material (REQ-F-006).",
+        "operationId": "getMaterialById",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClassIdParam"
+          },
+          {
+            "$ref": "#/components/parameters/SubjectIdParam"
+          },
+          {
+            "$ref": "#/components/parameters/MaterialIdParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Material retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaterialResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/classes/{classId}/subjects/{subjectId}/materials/{materialId}/download": {
+      "get": {
+        "tags": ["Materials"],
+        "summary": "Download uploaded material file",
+        "description": "Downloads the binary stream of the file material (REQ-F-006).",
+        "operationId": "downloadMaterialFile",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClassIdParam"
+          },
+          {
+            "$ref": "#/components/parameters/SubjectIdParam"
+          },
+          {
+            "$ref": "#/components/parameters/MaterialIdParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File binary stream",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/classes/{classId}/subjects/{subjectId}/materials/{materialId}/deadline": {
+      "put": {
+        "tags": ["Calendar & Deadlines"],
+        "summary": "Assign or update deadline for a material",
+        "description": "Administrator assigns or shifts deadline date and time for material (REQ-F-007).",
+        "operationId": "assignMaterialDeadline",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClassIdParam"
+          },
+          {
+            "$ref": "#/components/parameters/SubjectIdParam"
+          },
+          {
+            "$ref": "#/components/parameters/MaterialIdParam"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeadlineUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Deadline updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeadlineResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntityError"
+          }
+        }
+      }
+    },
+    "/classes/{classId}/calendar": {
+      "get": {
+        "tags": ["Calendar & Deadlines"],
+        "summary": "Get class calendar deadlines",
+        "description": "Retrieves deadlines for all materials in the class within an optional date range (REQ-F-007).",
+        "operationId": "getClassCalendar",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClassIdParam"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "Start of date range (ISO-8601)",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-11-01"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "description": "End of date range (ISO-8601)",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-11-30"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Calendar deadlines retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarEventListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/calendar": {
+      "get": {
+        "tags": ["Calendar & Deadlines"],
+        "summary": "Get global aggregated calendar across all user classes",
+        "description": "Retrieves upcoming deadlines across all classes the user belongs to (REQ-F-007).",
+        "operationId": "getGlobalCalendar",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aggregated calendar events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarEventListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/reminders": {
+      "get": {
+        "tags": ["Reminders"],
+        "summary": "List automated reminders for current user",
+        "description": "Returns automated notifications generated 1 week and 1 day prior to upcoming deadlines (REQ-F-008).\n",
+        "operationId": "listReminders",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "is_read",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "example": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reminders retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReminderListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/reminders/{reminderId}/read": {
+      "patch": {
+        "tags": ["Reminders"],
+        "summary": "Mark a reminder notification as read",
+        "description": "Updates the read state of an internal reminder (REQ-F-008).",
+        "operationId": "markReminderRead",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "reminderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "9c3c1ef7-a2ef-42d4-a82f-2c702be966b4"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reminder updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReminderResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/classes/{classId}/materials/{materialId}/extension-requests": {
+      "post": {
+        "tags": ["Extensions"],
+        "summary": "Submit a deadline extension request",
+        "description": "A Student submits an extension request with a justification comment for a material deadline (REQ-F-009, BDD Scenario 2).\n",
+        "operationId": "submitExtensionRequest",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClassIdParam"
+          },
+          {
+            "$ref": "#/components/parameters/MaterialIdParam"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtensionRequestCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Extension request submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionRequestResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "409": {
+            "description": "Extension request already pending",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                },
+                "example": {
+                  "type": "https://labmanager.edu/errors/conflict",
+                  "title": "Conflict",
+                  "status": 409,
+                  "detail": "You already have an active pending extension request for this material.",
+                  "instance": "/api/v1/classes/cls_101/materials/mat_505/extension-requests"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntityError"
+          }
+        }
+      }
+    },
+    "/classes/{classId}/extension-requests": {
+      "get": {
+        "tags": ["Extensions"],
+        "summary": "List extension requests in a class",
+        "description": "Administrators view all extension requests in the class. Students only see their own requests (REQ-F-009).\n",
+        "operationId": "listExtensionRequests",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClassIdParam"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["pending", "approved", "rejected"],
+              "example": "pending"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Extension requests retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionRequestListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/classes/{classId}/extension-requests/{requestId}/decision": {
+      "patch": {
+        "tags": ["Extensions"],
+        "summary": "Approve or reject an extension request",
+        "description": "Administrator reviews the extension request. Approving updates the deadline for the user or entire class (REQ-F-010).\n",
+        "operationId": "decideExtensionRequest",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClassIdParam"
+          },
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "d19c3e98-c114-46f9-bb20-1b7774ad825e"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtensionDecisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Decision applied successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionRequestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntityError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Standard Bearer token header `Authorization: Bearer <jwt_token>`"
+      }
+    },
+    "parameters": {
+      "ClassIdParam": {
+        "name": "classId",
+        "in": "path",
+        "required": true,
+        "description": "Unique identifier of the Class",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "example": "6c9f280b-2268-450a-8669-eecfc1dae290"
+        }
+      },
+      "SubjectIdParam": {
+        "name": "subjectId",
+        "in": "path",
+        "required": true,
+        "description": "Unique identifier of the Subject",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "example": "495be23b-01a5-484d-a94f-4054a8677c7d"
+        }
+      },
+      "MaterialIdParam": {
+        "name": "materialId",
+        "in": "path",
+        "required": true,
+        "description": "Unique identifier of the Material",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "example": "991e0a29-2325-4c07-b769-cf76e1919a31"
+        }
+      }
+    },
+    "responses": {
+      "BadRequestError": {
+        "description": "Malformed syntax or invalid request format",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            },
+            "example": {
+              "type": "https://labmanager.edu/errors/bad-request",
+              "title": "Bad Request",
+              "status": 400,
+              "detail": "The request body could not be parsed as valid JSON.",
+              "instance": "/api/v1/auth/register"
+            }
+          }
+        }
+      },
+      "UnauthorizedError": {
+        "description": "Authentication credentials missing, invalid, or expired",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            },
+            "example": {
+              "type": "https://labmanager.edu/errors/unauthorized",
+              "title": "Unauthorized",
+              "status": 401,
+              "detail": "Missing or invalid Bearer authentication token.",
+              "instance": "/api/v1/classes"
+            }
+          }
+        }
+      },
+      "ForbiddenError": {
+        "description": "User lacks sufficient permissions for this operation (e.g. Student trying admin action)",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            },
+            "example": {
+              "type": "https://labmanager.edu/errors/forbidden",
+              "title": "Forbidden",
+              "status": 403,
+              "detail": "Only Class Administrators are permitted to perform this action.",
+              "instance": "/api/v1/classes/6c9f280b-2268-450a-8669-eecfc1dae290/subjects"
+            }
+          }
+        }
+      },
+      "NotFoundError": {
+        "description": "Requested resource was not found",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            },
+            "example": {
+              "type": "https://labmanager.edu/errors/not-found",
+              "title": "Not Found",
+              "status": 404,
+              "detail": "The requested entity could not be found.",
+              "instance": "/api/v1/classes/non-existent-id"
+            }
+          }
+        }
+      },
+      "UnprocessableEntityError": {
+        "description": "Semantic validation failed for submitted data",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            },
+            "example": {
+              "type": "https://labmanager.edu/errors/validation-error",
+              "title": "Unprocessable Entity",
+              "status": 422,
+              "detail": "One or more fields failed validation checks.",
+              "instance": "/api/v1/classes",
+              "invalid_params": [
+                {
+                  "name": "title",
+                  "reason": "Title must be at least 3 characters long."
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ProblemDetails": {
+        "type": "object",
+        "description": "Standard RFC 7807 / RFC 9457 Problem Details object",
+        "required": ["type", "title", "status", "detail"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "format": "uri",
+            "description": "A URI reference that identifies the problem type",
+            "example": "https://labmanager.edu/errors/validation-error"
+          },
+          "title": {
+            "type": "string",
+            "description": "Short human-readable summary of problem type",
+            "example": "Unprocessable Entity"
+          },
+          "status": {
+            "type": "integer",
+            "description": "The HTTP status code generated by the origin server",
+            "example": 422
+          },
+          "detail": {
+            "type": "string",
+            "description": "Human-readable explanation specific to this occurrence of the problem",
+            "example": "Title must not be empty and must be between 3 and 100 characters."
+          },
+          "instance": {
+            "type": "string",
+            "description": "URI reference identifying specific occurrence of the problem",
+            "example": "/api/v1/classes"
+          },
+          "invalid_params": {
+            "type": "array",
+            "description": "List of invalid request parameters or fields",
+            "items": {
+              "$ref": "#/components/schemas/InvalidParam"
+            }
+          }
+        }
+      },
+      "InvalidParam": {
+        "type": "object",
+        "required": ["name", "reason"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "file"
+          },
+          "reason": {
+            "type": "string",
+            "example": "File exceeds the 500MB limit."
+          }
+        }
+      },
+      "UserRegistrationRequest": {
+        "type": "object",
+        "required": ["email", "password", "full_name"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "alex.doe@university.edu"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "minLength": 8,
+            "example": "SecureP@ssw0rd!"
+          },
+          "full_name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100,
+            "example": "Alex Doe"
+          }
+        }
+      },
+      "UserLoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "alex.doe@university.edu"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "example": "SecureP@ssw0rd!"
+          }
+        }
+      },
+      "AuthTokenResponse": {
+        "type": "object",
+        "required": ["token_type", "access_token", "expires_in", "user"],
+        "properties": {
+          "token_type": {
+            "type": "string",
+            "example": "Bearer"
+          },
+          "access_token": {
+            "type": "string",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
+          "expires_in": {
+            "type": "integer",
+            "example": 86400
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserProfileResponse"
+          }
+        }
+      },
+      "UserProfileResponse": {
+        "type": "object",
+        "required": ["id", "email", "full_name", "created_at"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "c79b90c2-5509-42b7-a36c-9226cbff207b"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "alex.doe@university.edu"
+          },
+          "full_name": {
+            "type": "string",
+            "example": "Alex Doe"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-24T18:00:00Z"
+          },
+          "memberships": {
+            "type": "array",
+            "description": "Contextual roles across joined classes (REQ-NF-002)",
+            "items": {
+              "$ref": "#/components/schemas/UserClassMembershipBadge"
+            }
+          }
+        }
+      },
+      "UserClassMembershipBadge": {
+        "type": "object",
+        "required": ["class_id", "class_title", "role"],
+        "properties": {
+          "class_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "6c9f280b-2268-450a-8669-eecfc1dae290"
+          },
+          "class_title": {
+            "type": "string",
+            "example": "Math 101"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["administrator", "student"],
+            "example": "administrator"
+          }
+        }
+      },
+      "ClassCreateRequest": {
+        "type": "object",
+        "required": ["title"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 120,
+            "example": "Math 101: Linear Algebra"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000,
+            "example": "Linear systems, vector spaces, and eigenvalue problems."
+          }
+        }
+      },
+      "ClassResponse": {
+        "type": "object",
+        "required": ["id", "title", "owner_id", "current_user_role", "created_at"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "6c9f280b-2268-450a-8669-eecfc1dae290"
+          },
+          "title": {
+            "type": "string",
+            "example": "Math 101: Linear Algebra"
+          },
+          "description": {
+            "type": "string",
+            "example": "Linear systems, vector spaces, and eigenvalue problems."
+          },
+          "owner_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "c79b90c2-5509-42b7-a36c-9226cbff207b"
+          },
+          "current_user_role": {
+            "type": "string",
+            "enum": ["administrator", "student"],
+            "example": "administrator"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-24T18:05:00Z"
+          }
+        }
+      },
+      "ClassDetailResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ClassResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "members_count": {
+                "type": "integer",
+                "example": 24
+              },
+              "subjects_count": {
+                "type": "integer",
+                "example": 3
+              }
+            }
+          }
+        ]
+      },
+      "ClassListResponse": {
+        "type": "object",
+        "required": ["items", "total"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClassResponse"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "example": 1
+          }
+        }
+      },
+      "InviteCreateRequest": {
+        "type": "object",
+        "properties": {
+          "expires_in_hours": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 720,
+            "default": 168,
+            "example": 168
+          },
+          "max_uses": {
+            "type": "integer",
+            "nullable": true,
+            "example": 50
+          }
+        }
+      },
+      "InviteResponse": {
+        "type": "object",
+        "required": ["class_id", "invite_token", "invite_url", "expires_at"],
+        "properties": {
+          "class_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "6c9f280b-2268-450a-8669-eecfc1dae290"
+          },
+          "invite_token": {
+            "type": "string",
+            "example": "inv_math101_7f8a9e"
+          },
+          "invite_url": {
+            "type": "string",
+            "example": "https://labmanager.edu/invites/inv_math101_7f8a9e"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-31T18:00:00Z"
+          }
+        }
+      },
+      "JoinClassResponse": {
+        "type": "object",
+        "required": ["class_id", "class_title", "user_id", "role", "joined_at"],
+        "properties": {
+          "class_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "6c9f280b-2268-450a-8669-eecfc1dae290"
+          },
+          "class_title": {
+            "type": "string",
+            "example": "Math 101: Linear Algebra"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "e5d0a649-74d1-4db8-8422-540306ee1780"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["student"],
+            "example": "student"
+          },
+          "joined_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-24T18:10:00Z"
+          }
+        }
+      },
+      "ClassMemberResponse": {
+        "type": "object",
+        "required": ["user_id", "full_name", "email", "role", "joined_at"],
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "e5d0a649-74d1-4db8-8422-540306ee1780"
+          },
+          "full_name": {
+            "type": "string",
+            "example": "John Student"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "john.student@university.edu"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["administrator", "student"],
+            "example": "administrator"
+          },
+          "joined_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-24T18:10:00Z"
+          }
+        }
+      },
+      "ClassMemberListResponse": {
+        "type": "object",
+        "required": ["items", "total"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClassMemberResponse"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "example": 2
+          }
+        }
+      },
+      "RoleUpdateRequest": {
+        "type": "object",
+        "required": ["role"],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": ["administrator", "student"],
+            "example": "administrator"
+          }
+        }
+      },
+      "SubjectCreateRequest": {
+        "type": "object",
+        "required": ["title"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100,
+            "example": "Module 1: Matrices and Determinants"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "example": "Gaussian elimination, matrix inversion, and determinants."
+          }
+        }
+      },
+      "SubjectResponse": {
+        "type": "object",
+        "required": ["id", "class_id", "title", "created_at"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "495be23b-01a5-484d-a94f-4054a8677c7d"
+          },
+          "class_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "6c9f280b-2268-450a-8669-eecfc1dae290"
+          },
+          "title": {
+            "type": "string",
+            "example": "Module 1: Matrices and Determinants"
+          },
+          "description": {
+            "type": "string",
+            "example": "Gaussian elimination, matrix inversion, and determinants."
+          },
+          "materials_count": {
+            "type": "integer",
+            "example": 4
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-24T18:15:00Z"
+          }
+        }
+      },
+      "SubjectListResponse": {
+        "type": "object",
+        "required": ["items", "total"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubjectResponse"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "example": 1
+          }
+        }
+      },
+      "MaterialFileUploadRequest": {
+        "type": "object",
+        "required": ["title", "file"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 150,
+            "example": "Lab 1 Assignment Specification"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000,
+            "example": "Laboratory assignment on solving linear equation systems."
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-10T23:59:59Z"
+          },
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "Binary file upload (max 500MB). Formats include text, PDF, images, archives, code."
+          }
+        }
+      },
+      "MaterialLinkCreateRequest": {
+        "type": "object",
+        "required": ["title", "type", "link_url"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 150,
+            "example": "Interactive Matrix Calculator Documentation"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000,
+            "example": "Online web toolkit for visual matrix multiplications."
+          },
+          "type": {
+            "type": "string",
+            "enum": ["link"],
+            "example": "link"
+          },
+          "link_url": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://matrixcalc.org/en/"
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-11-10T23:59:59Z"
+          }
+        }
+      },
+      "MaterialResponse": {
+        "type": "object",
+        "required": ["id", "subject_id", "title", "type", "created_at"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "991e0a29-2325-4c07-b769-cf76e1919a31"
+          },
+          "subject_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "495be23b-01a5-484d-a94f-4054a8677c7d"
+          },
+          "title": {
+            "type": "string",
+            "example": "Lab 1 Assignment Specification"
+          },
+          "description": {
+            "type": "string",
+            "example": "Laboratory assignment on solving linear equation systems."
+          },
+          "type": {
+            "type": "string",
+            "enum": ["file", "link"],
+            "example": "file"
+          },
+          "file_name": {
+            "type": "string",
+            "nullable": true,
+            "example": "lab1_guide.pdf"
+          },
+          "file_size_bytes": {
+            "type": "integer",
+            "nullable": true,
+            "maximum": 524288000,
+            "example": 4194304
+          },
+          "download_url": {
+            "type": "string",
+            "nullable": true,
+            "example": "/api/v1/classes/6c9f280b-2268-450a-8669-eecfc1dae290/subjects/495be23b-01a5-484d-a94f-4054a8677c7d/materials/991e0a29-2325-4c07-b769-cf76e1919a31/download"
+          },
+          "link_url": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-11-10T23:59:59Z"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-24T18:20:00Z"
+          }
+        }
+      },
+      "MaterialListResponse": {
+        "type": "object",
+        "required": ["items", "total"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MaterialResponse"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "example": 1
+          }
+        }
+      },
+      "DeadlineUpdateRequest": {
+        "type": "object",
+        "required": ["deadline"],
+        "properties": {
+          "deadline": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-17T23:59:59Z"
+          }
+        }
+      },
+      "DeadlineResponse": {
+        "type": "object",
+        "required": ["material_id", "deadline", "updated_at"],
+        "properties": {
+          "material_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "991e0a29-2325-4c07-b769-cf76e1919a31"
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-17T23:59:59Z"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-24T18:25:00Z"
+          }
+        }
+      },
+      "CalendarEventResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "class_id",
+          "class_title",
+          "subject_id",
+          "subject_title",
+          "material_id",
+          "material_title",
+          "deadline"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "991e0a29-2325-4c07-b769-cf76e1919a31"
+          },
+          "class_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "6c9f280b-2268-450a-8669-eecfc1dae290"
+          },
+          "class_title": {
+            "type": "string",
+            "example": "Math 101: Linear Algebra"
+          },
+          "subject_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "495be23b-01a5-484d-a94f-4054a8677c7d"
+          },
+          "subject_title": {
+            "type": "string",
+            "example": "Module 1: Matrices"
+          },
+          "material_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "991e0a29-2325-4c07-b769-cf76e1919a31"
+          },
+          "material_title": {
+            "type": "string",
+            "example": "Lab 1 Assignment Specification"
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-10T23:59:59Z"
+          }
+        }
+      },
+      "CalendarEventListResponse": {
+        "type": "object",
+        "required": ["items", "total"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarEventResponse"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "example": 1
+          }
+        }
+      },
+      "ReminderResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "material_id",
+          "material_title",
+          "class_title",
+          "trigger_type",
+          "deadline",
+          "message",
+          "is_read",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "9c3c1ef7-a2ef-42d4-a82f-2c702be966b4"
+          },
+          "material_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "991e0a29-2325-4c07-b769-cf76e1919a31"
+          },
+          "material_title": {
+            "type": "string",
+            "example": "Lab 1 Assignment Specification"
+          },
+          "class_title": {
+            "type": "string",
+            "example": "Math 101: Linear Algebra"
+          },
+          "trigger_type": {
+            "type": "string",
+            "enum": ["7_day", "1_day"],
+            "example": "7_day"
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-10T23:59:59Z"
+          },
+          "message": {
+            "type": "string",
+            "example": "Reminder: 'Lab 1 Assignment Specification' is due in 7 days."
+          },
+          "is_read": {
+            "type": "boolean",
+            "example": false
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-03T23:59:59Z"
+          }
+        }
+      },
+      "ReminderListResponse": {
+        "type": "object",
+        "required": ["items", "unread_count"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReminderResponse"
+            }
+          },
+          "unread_count": {
+            "type": "integer",
+            "example": 1
+          }
+        }
+      },
+      "ExtensionRequestCreate": {
+        "type": "object",
+        "required": ["comment", "requested_deadline"],
+        "properties": {
+          "comment": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 1000,
+            "example": "I was sick with flu and couldn't access my dev environment."
+          },
+          "requested_deadline": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-17T23:59:59Z"
+          }
+        }
+      },
+      "ExtensionRequestResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "class_id",
+          "material_id",
+          "requester_id",
+          "requester_name",
+          "comment",
+          "requested_deadline",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "d19c3e98-c114-46f9-bb20-1b7774ad825e"
+          },
+          "class_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "6c9f280b-2268-450a-8669-eecfc1dae290"
+          },
+          "material_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "991e0a29-2325-4c07-b769-cf76e1919a31"
+          },
+          "requester_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "e5d0a649-74d1-4db8-8422-540306ee1780"
+          },
+          "requester_name": {
+            "type": "string",
+            "example": "John Student"
+          },
+          "comment": {
+            "type": "string",
+            "example": "I was sick with flu and couldn't access my dev environment."
+          },
+          "requested_deadline": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-17T23:59:59Z"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "approved", "rejected"],
+            "example": "pending"
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["user", "class"],
+            "nullable": true,
+            "example": "user"
+          },
+          "resolution_comment": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "resolved_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": null
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-04T10:00:00Z"
+          }
+        }
+      },
+      "ExtensionRequestListResponse": {
+        "type": "object",
+        "required": ["items", "total"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExtensionRequestResponse"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "example": 1
+          }
+        }
+      },
+      "ExtensionDecisionRequest": {
+        "type": "object",
+        "required": ["decision"],
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": ["approved", "rejected"],
+            "example": "approved"
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["user", "class"],
+            "default": "user",
+            "example": "user"
+          },
+          "new_deadline": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-11-17T23:59:59Z"
+          },
+          "resolution_comment": {
+            "type": "string",
+            "maxLength": 1000,
+            "example": "Granted 7-day individual extension upon medical notice."
+          }
+        }
+      }
+    }
+  }
+}
