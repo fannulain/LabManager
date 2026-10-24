@@ -21,46 +21,89 @@ Developed using **Specification-Driven Development (SDD)** with a strict **Human
 
 The project strictly follows the **Specification-Driven Development (SDD)** paradigm, maintaining an immutable requirements contract and formal stage-gates before code transitions:
 
-- **Human Reviewer:** Product Owner, Lead Architect, and Quality Auditor. Retains exclusive, non-delegable authority over Stage-Gate decisions (`SPEC-GATE`, `PLAN-GATE`, `STAGE-GATE`), user intent validation, and requirements baseline approvals.
+- **Human Reviewer:** Product Owner, Lead Architect, and Quality Auditor. Retains exclusive, non-delegable authority over Stage-Gate decisions (`SPEC-GATE`, `PLAN-GATE`, `API-GATE`, `STAGE-GATE`), user intent validation, and requirements baseline approvals.
 - **AI Coding Agent (Antigravity):** Autonomous technical partner responsible for initial decomposition, automated test suite generation, feature implementation adhering strictly to SRS boundaries, CI verification, and documentation drafting.
 
 ---
 
-## 3. Repository Structure
+## 3. REST API Specification & Mock API (Lab #4)
+
+In accordance with API-First design, formal contracts and mocks are established prior to server implementation:
+
+- **OpenAPI 3.0.3 Specification:** [`spec/openapi.yaml`](spec/openapi.yaml) and [`spec/openapi.json`](spec/openapi.json)
+- **REST Architecture & Resource Model:** [`docs/api_design.md`](docs/api_design.md)
+- **SRS Behavioral Addendum:** [`spec/srs_addendum.md`](spec/srs_addendum.md)
+- **API-GATE Decision Record:** [`logs/api_gate.md`](logs/api_gate.md)
+
+### Running Automated Specification Validation
+```bash
+python scripts/validate_openapi.py
+```
+
+### Running the Contract Mock API Server
+```bash
+# Option A: Built-in OpenAPI specification runner
+python scripts/mock_server.py
+
+# Option B: Stoplight Prism CLI (if installed)
+npx @stoplight/prism-cli mock spec/openapi.yaml -p 8000
+```
+
+### Running the Mock Contract Test Suite (21 Scenarios)
+```bash
+python -m pytest tests/test_mock_api.py -v
+```
+
+---
+
+## 4. Repository Structure
 
 ```text
 LabManager/
 ├── spec/                        # Formal Requirements Baseline (Immutable Contract)
 │   ├── project_description.md   # High-level project charter and domain purpose
-│   └── srs.md                   # Formal Software Requirements Specification (v1.0)
+│   ├── srs.md                   # Formal Software Requirements Specification (v1.0)
+│   ├── srs_addendum.md          # Architectural addendum & protocol refinements
+│   ├── openapi.yaml             # OpenAPI 3.0.3 REST Contract (YAML)
+│   └── openapi.json             # OpenAPI 3.0.3 REST Contract (JSON)
 │
 ├── docs/                        # Project Engineering & Management Artifacts
 │   ├── features.md              # Detailed breakdown of core system features
+│   ├── api_design.md            # REST resource decomposition, URIs, schemas & RFC 7807 model
 │   ├── workflow.md              # SDD issue tracking setup, statuses, and role-based lifecycle diagram
 │   ├── tickets.md               # 24 decomposed work units (Tests, Features, Gates, Docs)
 │   ├── plan.md                  # Implementation phases, critical path analysis, and Gantt schedule
 │   ├── risks.md                 # Risk register (Classical tech risks & AI pipeline-specific controls)
-│   ├── traceability_matrix.md   # Bidirectional mapping from SRS IDs to tickets, code, and tests
+│   ├── traceability_matrix.md   # Bidirectional mapping from SRS IDs to tickets, API operations, code, and tests
 │   └── task_lifecycle_diagram.svg # Standalone SVG state diagram for the ticket lifecycle
+│
+├── scripts/                     # Automation, validation and mock runners
+│   ├── validate_openapi.py      # Automated OpenAPI syntax and structural validator
+│   └── mock_server.py           # Specification-driven mock API server
 │
 ├── logs/                        # Governance, Audit Records & Decision Checkpoints
 │   ├── agent_info.md            # AI Coding Agent profile, operational scope, and tool access
 │   ├── conflicts.md             # Merge conflict and resolution audit log
 │   ├── sked_summary.md          # SKED dialogue summary and SPEC-GATE approval record
-│   └── plan_gate.md             # Formal PLAN-GATE audit checklist and GO decision record
+│   ├── plan_gate.md             # Formal PLAN-GATE audit checklist and GO decision record
+│   └── api_gate.md              # Formal API-GATE audit checklist and GO decision record
 │
 ├── src/                         # Application source code (Backend & Frontend)
-└── tests/                       # Automated test suites (Unit, Integration, and BDD scenarios)
+└── tests/                       # Automated test suites
+    └── test_mock_api.py         # Mock API positive & negative scenario suite (21 tests)
 ```
 
 ---
 
-## 4. Key Project References
+## 5. Key Project References
 
 - **Requirements Baseline:** [`spec/srs.md`](spec/srs.md)
+- **SRS Addendum:** [`spec/srs_addendum.md`](spec/srs_addendum.md)
+- **REST API Design Document:** [`docs/api_design.md`](docs/api_design.md)
 - **Work Process & State Machine:** [`docs/workflow.md`](docs/workflow.md)
 - **Decomposed Tickets:** [`docs/tickets.md`](docs/tickets.md)
 - **Traceability Matrix:** [`docs/traceability_matrix.md`](docs/traceability_matrix.md)
 - **Project Schedule & Gantt:** [`docs/plan.md`](docs/plan.md)
 - **Risk Register:** [`docs/risks.md`](docs/risks.md)
 - **PLAN-GATE Decision Audit:** [`logs/plan_gate.md`](logs/plan_gate.md)
+- **API-GATE Decision Audit:** [`logs/api_gate.md`](logs/api_gate.md)
