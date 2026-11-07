@@ -3,6 +3,12 @@ LabManager REST API Application Factory.
 Configures component blueprints, RFC 7807 error handling, and structured request logging.
 """
 
+import os
+import sys
+
+# Ensure project root is present in sys.path when running as `python src/app.py`
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from flask import Flask, request, g
 from src.core.errors import register_error_handlers
 from src.core.logging_config import setup_logging, audit_log, logger
