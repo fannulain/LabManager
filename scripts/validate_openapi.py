@@ -23,6 +23,7 @@ REQUIRED_REQ_IDS = [
     "REQ-F-008",
     "REQ-F-009",
     "REQ-F-010",
+    "REQ-F-011",
     "REQ-NF-001",
     "REQ-NF-002",
 ]

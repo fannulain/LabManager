@@ -36,6 +36,8 @@ Every ticket directly originates from an approved SRS requirement or is a struct
 | **TICK-022** | `Documentation` | All | User Guide, API Documentation & Architecture Manual | AI Coding Agent | TICK-021 |
 | **TICK-023** | `Validation` | REQ-NF-002, All | User Acceptance Testing (UAT) & Usability Validation | Human Reviewer | TICK-021 |
 | **TICK-024** | `Gate` | All | **STAGE-GATE: Final Release & Delivery Sign-Off** | Human Reviewer | TICK-022, TICK-023 |
+| **TICK-025** | `Test` | REQ-F-011 | Material Deletion & Cascading Test Suite | AI Coding Agent | TICK-024 |
+| **TICK-026** | `Feature` | REQ-F-011 | Material Deletion Endpoint & Cascading Lifecycle Service | AI Coding Agent | TICK-025 |
 
 ---
 
@@ -184,3 +186,15 @@ Every ticket directly originates from an approved SRS requirement or is a struct
 - **Role:** Human Reviewer
 - **Requirement:** All
 - **Criteria:** Verification passed, validation signed off, documentation complete. Decision = GO for deployment.
+
+### TICK-025: Material Deletion & Cascading Test Suite
+- **Type:** `Test`
+- **Role:** AI Coding Agent
+- **Requirement:** REQ-F-011 (BDD Scenarios 4 & 5)
+- **Criteria:** Automated tests verify 204 No Content for admin deletion, 403 Forbidden for students, 404 Not Found for missing materials, and verified cascading removal from calendar, reminders, and extension requests.
+
+### TICK-026: Material Deletion & Cascading Lifecycle Service
+- **Type:** `Feature`
+- **Role:** AI Coding Agent
+- **Requirement:** REQ-F-011
+- **Criteria:** Administrator can delete a material via `DELETE /api/v1/classes/{classId}/subjects/{subjectId}/materials/{materialId}`; cascades deletion across calendar, reminders, and extension requests; emits audit log. Tests in TICK-025 pass 100%.
