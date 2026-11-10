@@ -66,32 +66,59 @@ The backend is built with strict component separation and zero vibe coding:
   - `auth_service.py`, `class_service.py`, `invite_service.py`, `subject_service.py`, `material_service.py`, `calendar_service.py`, `reminder_service.py`, `extension_service.py`.
 - **`src/api/` (REST Controllers / Flask Blueprints):**
   - `auth_routes.py`, `class_routes.py`, `invite_routes.py`, `subject_routes.py`, `material_routes.py`, `calendar_routes.py`, `reminder_routes.py`, `extension_routes.py`.
-- **`src/app.py`:** Application factory configuring Blueprints, error handlers, and audit logging.
+- **`src/templates/` & `src/static/` (Interactive Web Dashboard):**
+  - `index.html`: Responsive Single Page Application (SPA) dashboard built with Tailwind CSS and FontAwesome.
+- **`src/app.py`:** Application factory configuring Blueprints, Web UI endpoints, error handlers, and audit logging.
 
 ---
 
-## 4. Quick Start & Execution Commands
+## 4. Interactive Graphical Web Interface (Web Dashboard)
 
-### 1. Run Automated OpenAPI Contract Validation
-Validates syntax, structural conformance, 153 internal pointer resolutions, and coverage of all 13 SRS requirements:
+LabManager includes a rich, responsive Single Page Application (SPA) served directly at **`http://127.0.0.1:5000/`**. It provides full visual interaction covering 100% of the functional and non-functional requirements:
+
+- **Authentication & User Identity (`REQ-F-001`):** Seamless registration, login with JWT token storage, quick demo login buttons (Educator Admin vs. Student), and logout.
+- **Contextual Role Differentiation (`REQ-NF-002`):**
+  - **Administrator Mode:** Purple theme accent with crown badge; provides controls for creating subjects, generating invites, viewing rosters, elevating students to admins, approving/rejecting extensions, and deleting materials.
+  - **Student Mode:** Emerald theme accent with graduate badge; provides read-only course exploration, file downloading, calendar deadline tracking, and extension request forms.
+- **Class Management & Invite Workflow (`REQ-F-002`, `REQ-F-003`, `BDD Scenario 1`):** Create new classes, generate expiring invite tokens (24h, 7d, 30d), and join classes via invite link/token.
+- **Role Elevation Module (`REQ-F-004`):** Interactive member roster modal allowing administrators to promote enrolled students to administrators.
+- **Subject & Material Management (`REQ-F-005`, `REQ-F-006`):** Organized `Class -> Subject -> Materials` tree hierarchy with support for file attachments and external links.
+- **500MB Upload Enforcement (`REQ-NF-001`, `ADD-003`, `BDD Scenario 3`):** Interactive file size selector with presets (1MB, 100MB, exact 500MB limit: 524,288,000 bytes, and 600MB overflow). Real-time display of RFC 7807 `413 Payload Too Large` error details.
+- **Interactive Calendar View (`REQ-F-007`, `ADD-004`):** Aggregated visual deadline schedule with class-specific and global filtering, urgency tags, and material details.
+- **Automated Reminders Center (`REQ-F-008`):** Unread notification counter in header, 7-day and 1-day deadline reminders, and one-click "Mark as Read" action.
+- **Extension Requests Lifecycle (`REQ-F-009`, `REQ-F-010`, `ADD-006`, `BDD Scenario 2`):**
+  - Students submit formal extension requests with medical/personal comments and requested deadlines.
+  - Administrators review pending requests in a dedicated panel, approve with user or class-wide scope, and automatically shift the material deadline timestamp.
+- **Material Deletion & Cascading Lifecycle (`REQ-F-011` / Addendum 02):** Administrators can permanently remove materials with automated cascading cleanup of calendar entries, active reminders, and pending requests.
+- **Live System Audit Log Stream:** Real-time terminal view of `logs/system.log` displaying timestamped audit records for all operations and security events.
+- **OpenAPI Contract Explorer:** Interactive visual breakdown of all 26 REST API operations.
+
+---
+
+## 5. Quick Start & Execution Commands
+
+### 1. Launch Web Dashboard & REST API
 ```bash
-python scripts/validate_openapi.py
-```
+# Option A: Root convenience script
+python run.py
 
-### 2. Run Full Test Suite (44 Tests, 100% Pass Rate)
-Executes all unit, integration, BDD scenarios (1–5), boundary conditions, and contract checks:
+# Option B: Application module
+python src/app.py
+```
+Then open your browser at **`http://127.0.0.1:5000/`**.
+
+### 2. Run Full Test Suite (47 Tests, 100% Pass Rate)
+Executes all unit, integration, Web UI endpoints, BDD scenarios (1–5), and contract checks:
 ```bash
 python -m pytest tests/ -v
 ```
 
-### 3. Run Real REST API Server
-Starts the application with full audit logging on `http://127.0.0.1:5000`:
+### 3. Run Automated OpenAPI Contract Validation
 ```bash
-python src/app.py
+python scripts/validate_openapi.py
 ```
 
 ### 4. Inspect Live Audit Logs
-Inspect runtime actions, security checks, and operational events:
 ```powershell
 Get-Content logs/system.log -Tail 30
 ```
@@ -148,17 +175,21 @@ LabManager/
 │   ├── storage/                          # Thread-safe in-memory repository
 │   ├── services/                         # Business logic services
 │   ├── api/                              # REST Blueprint controllers
+│   ├── templates/                        # Web UI HTML templates (SPA Dashboard)
+│   ├── static/                           # Web UI static assets
 │   └── app.py                            # Flask application factory
 │
 ├── tests/                                # Automated TDD Test Suites
 │   ├── test_server_api.py                # Server TDD test suite (23 tests: base + addendum)
-│   └── test_mock_api.py                  # Contract mock verification suite (21 tests)
+│   ├── test_mock_api.py                  # Contract mock verification suite (21 tests)
+│   └── test_web_ui.py                    # Web UI dashboard & docs test suite (3 tests)
 │
 ├── scripts/                              # Tooling & Generation Scripts
 │   ├── validate_openapi.py               # Automated OpenAPI validator
 │   ├── mock_server.py                    # Contract mock runner
 │   └── generate_report_docx.py           # Academic report generator
 │
+├── run.py                                # Convenience entrypoint to launch web app
 ├── Звіт_Лабораторна_робота_TDD_LabManager.docx  # Academic report (.docx)
 └── README.md                             # Project overview and instructions
 ```
