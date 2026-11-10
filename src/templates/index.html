@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LabManager — Educational Materials & Deadlines Manager</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            800: '#3730a3',
+                            900: '#312e81'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .badge-admin { background-color: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; }
+        .badge-student { background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+        .tab-active { border-bottom: 3px solid #4f46e5; color: #4f46e5; font-weight: 600; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
+
+    <!-- TOP NAVIGATION BAR -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <!-- Brand Logo -->
+                <div class="flex items-center space-x-3 cursor-pointer" onclick="navigate('classes')">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 flex items-center justify-center text-white shadow-md">
+                        <i class="fa-solid fa-graduation-cap text-lg"></i>
+                    </div>
+                    <div>
+                        <span class="text-xl font-bold bg-gradient-to-r from-brand-700 to-indigo-600 bg-clip-text text-transparent">LabManager</span>
+                        <span class="hidden sm:inline-block ml-2 text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-medium border border-indigo-200">REST API v1.0</span>
+                    </div>
+                </div>
+
+                <!-- Navigation Tabs (Only when authenticated) -->
+                <nav id="nav-menu" class="hidden md:flex space-x-1 lg:space-x-4">
+                    <button onclick="navigate('classes')" id="tab-classes" class="nav-tab px-3 py-2 text-sm text-slate-600 hover:text-brand-600 flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-chalkboard-user"></i> My Classes
+                    </button>
+                    <button onclick="navigate('calendar')" id="tab-calendar" class="nav-tab px-3 py-2 text-sm text-slate-600 hover:text-brand-600 flex items-center gap-1.5 transition">
+                        <i class="fa-regular fa-calendar-days"></i> Deadline Calendar
+                    </button>
+                    <button onclick="navigate('reminders')" id="tab-reminders" class="nav-tab px-3 py-2 text-sm text-slate-600 hover:text-brand-600 flex items-center gap-1.5 transition relative">
+                        <i class="fa-regular fa-bell"></i> Reminders
+                        <span id="unread-reminders-badge" class="hidden ml-1 bg-rose-500 text-white text-xs px-1.5 py-0.2 rounded-full font-bold">0</span>
+                    </button>
+                    <button onclick="navigate('logs')" id="tab-logs" class="nav-tab px-3 py-2 text-sm text-slate-600 hover:text-brand-600 flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-list-check"></i> Audit Logs
+                    </button>
+                    <button onclick="navigate('spec')" id="tab-spec" class="nav-tab px-3 py-2 text-sm text-slate-600 hover:text-brand-600 flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-code"></i> OpenAPI Contract
+                    </button>
+                </nav>
+
+                <!-- User Profile / Auth State -->
+                <div class="flex items-center space-x-3">
+                    <div id="user-profile-badge" class="hidden items-center space-x-3 bg-slate-100 py-1.5 px-3 rounded-xl border border-slate-200">
+                        <div class="text-right hidden sm:block">
+                            <div id="user-display-name" class="text-xs font-bold text-slate-800">User</div>
+                            <div id="user-display-email" class="text-[10px] text-slate-500">user@email.com</div>
+                        </div>
+                        <button onclick="logout()" title="Sign Out" class="text-slate-400 hover:text-rose-600 p-1.5 transition rounded-lg hover:bg-slate-200">
+                            <i class="fa-solid fa-right-from-bracket"></i>
+                        </button>
+                    </div>
+                    <button id="btn-login-open" onclick="openAuthModal('login')" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-2 rounded-xl shadow transition flex items-center gap-2">
+                        <i class="fa-solid fa-user-lock"></i> Sign In / Register
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- GLOBAL ALERTS & RFC 7807 PROBLEM DETAILS BANNER -->
+    <div id="global-alert-container" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 hidden">
+        <div id="global-alert" class="p-4 rounded-xl border shadow-sm flex items-start justify-between">
+            <div class="flex items-start space-x-3">
+                <i id="global-alert-icon" class="fa-solid fa-circle-exclamation text-lg mt-0.5"></i>
+                <div>
+                    <h4 id="global-alert-title" class="text-sm font-bold">Alert</h4>
+                    <p id="global-alert-detail" class="text-xs mt-1"></p>
+                    <div id="global-alert-params" class="text-xs mt-2 space-y-1"></div>
+                </div>
+            </div>
+            <button onclick="dismissAlert()" class="text-slate-400 hover:text-slate-600 text-sm ml-4">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN APPLICATION CONTAINER -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+
+        <!-- VIEW: GUEST WELCOME SCREEN -->
+        <section id="view-guest" class="py-12 text-center max-w-3xl mx-auto">
+            <div class="w-20 h-20 bg-indigo-100 text-brand-600 rounded-3xl flex items-center justify-center mx-auto mb-6 text-3xl shadow-inner">
+                <i class="fa-solid fa-book-open-reader"></i>
+            </div>
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-4 tracking-tight">
+                Academic Deadline & Educational Materials Hub
+            </h1>
+            <p class="text-slate-600 text-base sm:text-lg mb-8 leading-relaxed">
+                LabManager is developed under the <strong>Specification-Driven Development (SDD)</strong> and <strong>TDD</strong> methodologies in strict conformance with the OpenAPI 3.0.3 contract. Featuring contextual roles (Educator / Student), 500MB upload capacity, built-in calendar, and cascading material lifecycle management.
+            </p>
+            <div class="flex flex-wrap justify-center gap-4">
+                <button onclick="openAuthModal('login')" class="bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg shadow-indigo-100 transition flex items-center gap-2">
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In to Dashboard
+                </button>
+                <button onclick="demoLoginAdmin()" class="bg-purple-100 hover:bg-purple-200 text-purple-800 font-semibold px-5 py-3 rounded-xl border border-purple-200 transition flex items-center gap-2">
+                    <i class="fa-solid fa-user-tie"></i> Demo: Educator (Admin)
+                </button>
+                <button onclick="demoLoginStudent()" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-semibold px-5 py-3 rounded-xl border border-emerald-200 transition flex items-center gap-2">
+                    <i class="fa-solid fa-user-graduate"></i> Demo: Student
+                </button>
+            </div>
+        </section>
+
+        <!-- VIEW: CLASSES DASHBOARD (REQ-F-001, REQ-F-002, REQ-NF-002) -->
+        <section id="view-classes" class="hidden space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900">My Academic Classes</h2>
+                    <p class="text-sm text-slate-500">Manage your course workspaces as an Administrator or explore as an enrolled Student</p>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button onclick="openModal('modal-join-class')" class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-medium px-4 py-2 rounded-xl text-sm transition flex items-center gap-2 shadow-sm">
+                        <i class="fa-solid fa-link text-indigo-500"></i> Join via Invite Link
+                    </button>
+                    <button onclick="openModal('modal-create-class')" class="bg-brand-600 hover:bg-brand-700 text-white font-medium px-4 py-2 rounded-xl text-sm transition flex items-center gap-2 shadow-sm">
+                        <i class="fa-solid fa-plus"></i> Create New Class
+                    </button>
+                </div>
+            </div>
+
+            <!-- Classes Grid -->
+            <div id="classes-list-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Dynamically injected class cards -->
+            </div>
+            <div id="classes-empty-state" class="hidden text-center py-16 bg-white rounded-2xl border border-dashed border-slate-300">
+                <i class="fa-solid fa-folder-open text-4xl text-slate-300 mb-3"></i>
+                <h3 class="text-base font-semibold text-slate-700">No classes enrolled yet</h3>
+                <p class="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-4">Create your first course workspace or join using an invite token from your instructor.</p>
+                <button onclick="openModal('modal-create-class')" class="bg-brand-600 text-white text-xs px-4 py-2 rounded-lg font-medium hover:bg-brand-700 transition">
+                    Create Class
+                </button>
+            </div>
+        </section>
+
+        <!-- VIEW: CLASS WORKSPACE & SUBJECTS (REQ-F-003, REQ-F-004, REQ-F-005, REQ-F-006, REQ-F-011) -->
+        <section id="view-class-workspace" class="hidden space-y-6">
+            <!-- Breadcrumbs & Header -->
+            <div class="flex items-center space-x-2 text-sm text-slate-500">
+                <button onclick="navigate('classes')" class="hover:text-brand-600 flex items-center gap-1">
+                    <i class="fa-solid fa-arrow-left"></i> Back to Classes
+                </button>
+                <span>/</span>
+                <span id="workspace-class-title-crumb" class="font-medium text-slate-800">Class Workspace</span>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center space-x-3 mb-1">
+                            <h2 id="workspace-class-title" class="text-2xl font-bold text-slate-900">Class Title</h2>
+                            <span id="workspace-class-role-badge" class="text-xs px-2.5 py-0.5 rounded-full font-bold">Role</span>
+                        </div>
+                        <p id="workspace-class-desc" class="text-sm text-slate-600">Course curriculum and materials overview...</p>
+                    </div>
+
+                    <!-- Contextual Action Buttons -->
+                    <div id="workspace-admin-actions" class="flex flex-wrap items-center gap-2">
+                        <button onclick="openInviteModal()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold px-3 py-2 rounded-xl transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-user-plus"></i> Invite Link (Students)
+                        </button>
+                        <button onclick="openMembersModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-semibold px-3 py-2 rounded-xl transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-users"></i> Class Roster & Roles
+                        </button>
+                        <button onclick="openModal('modal-create-subject')" class="bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold px-3.5 py-2 rounded-xl shadow transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-folder-plus"></i> New Subject
+                        </button>
+                        <button onclick="openClassExtensionsModal()" class="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-semibold px-3 py-2 rounded-xl transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-clock-rotate-left"></i> Extension Requests
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Subjects & Materials Accordion -->
+            <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-book-bookmark text-indigo-500"></i> Academic Subjects & Materials
+                    </h3>
+                </div>
+
+                <div id="subjects-container" class="space-y-4">
+                    <!-- Injected subjects and their materials -->
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW: CALENDAR (REQ-F-007, ADD-004) -->
+        <section id="view-calendar" class="hidden space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900">Deadline Calendar</h2>
+                    <p class="text-sm text-slate-500">Schedule of assignments, laboratory deadlines, and academic milestones</p>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <span class="text-xs text-slate-500 font-medium">Filter:</span>
+                    <select id="calendar-filter-class" onchange="loadCalendarEvents()" class="text-xs bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        <option value="global">Global (All Enrolled Classes)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="calendar-timeline" class="space-y-3">
+                <!-- Dynamically injected timeline items -->
+            </div>
+            <div id="calendar-empty" class="hidden text-center py-16 bg-white rounded-2xl border border-dashed border-slate-300">
+                <i class="fa-regular fa-calendar-check text-4xl text-slate-300 mb-3"></i>
+                <h3 class="text-base font-semibold text-slate-700">No upcoming deadlines scheduled</h3>
+                <p class="text-xs text-slate-500 mt-1">Your educators have not set deadlines or all tasks are up to date.</p>
+            </div>
+        </section>
+
+        <!-- VIEW: REMINDERS (REQ-F-008) -->
+        <section id="view-reminders" class="hidden space-y-6">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900">System Reminders & Notifications</h2>
+                    <p class="text-sm text-slate-500">Automated reminder triggers dispatched 7 days and 1 day prior to upcoming deadlines</p>
+                </div>
+                <button onclick="loadReminders()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                </button>
+            </div>
+
+            <div id="reminders-list" class="space-y-3">
+                <!-- Injected reminders -->
+            </div>
+        </section>
+
+        <!-- VIEW: AUDIT LOGS (SYSTEM AUDIT TRAIL) -->
+        <section id="view-logs" class="hidden space-y-6">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900">System Audit Log (system.log)</h2>
+                    <p class="text-sm text-slate-500">Real-time structured audit trail of operations, security events, role checks, and errors</p>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button onclick="loadAuditLogs()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs px-3 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrows-rotate"></i> Refresh Log
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 text-slate-200 rounded-2xl p-4 font-mono text-xs shadow-inner overflow-x-auto max-h-[600px] border border-slate-800">
+                <div id="audit-logs-output" class="space-y-1">
+                    <!-- Injected raw logs -->
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW: OPENAPI SPECIFICATION EXPLORER -->
+        <section id="view-spec" class="hidden space-y-6">
+            <div class="pb-4 border-b border-slate-200">
+                <h2 class="text-2xl font-bold text-slate-900">OpenAPI 3.0.3 Contract Explorer</h2>
+                <p class="text-sm text-slate-500">Approved REST API specification (26 operations, RFC 7807 problem details, SDD standards)</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+                    <div class="text-2xl font-bold text-indigo-600">26</div>
+                    <div class="text-xs text-slate-500 font-medium mt-1">REST Operations</div>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+                    <div class="text-2xl font-bold text-emerald-600">13</div>
+                    <div class="text-xs text-slate-500 font-medium mt-1">SRS Requirements (100% Traced)</div>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+                    <div class="text-2xl font-bold text-purple-600">34</div>
+                    <div class="text-xs text-slate-500 font-medium mt-1">Data Schemas</div>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+                    <div class="text-2xl font-bold text-rose-600">RFC 7807</div>
+                    <div class="text-xs text-slate-500 font-medium mt-1">Problem Details Format</div>
+                </div>
+            </div>
+
+            <div id="openapi-endpoints-list" class="space-y-3">
+                <!-- Injected endpoints summary -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-white border-t border-slate-200 py-6 mt-12 text-center text-xs text-slate-500">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-2">
+            <div>LabManager © 2026. Specification-Driven Development & TDD Architecture.</div>
+            <div class="flex space-x-4">
+                <span class="text-slate-400">RFC 7807 Compliant</span>
+                <span class="text-slate-400">•</span>
+                <span class="text-slate-400">Max File: 500 MB</span>
+                <span class="text-slate-400">•</span>
+                <span class="text-slate-400">OpenAPI 3.0.3</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ==================== MODALS ==================== -->
+
+    <!-- AUTHENTICATION MODAL (LOGIN / REGISTER) -->
+    <div id="modal-auth" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden">
+            <!-- Modal Header -->
+            <div class="flex border-b border-slate-100">
+                <button onclick="switchAuthTab('login')" id="auth-tab-btn-login" class="flex-1 py-4 text-center font-bold text-sm border-b-2 border-brand-600 text-brand-600">
+                    Sign In
+                </button>
+                <button onclick="switchAuthTab('register')" id="auth-tab-btn-register" class="flex-1 py-4 text-center font-semibold text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-600">
+                    Create Account
+                </button>
+            </div>
+
+            <div class="p-6">
+                <!-- Login Form -->
+                <form id="form-login" onsubmit="handleLogin(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+                        <input type="email" id="login-email" required placeholder="alex@university.edu" class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Password</label>
+                        <input type="password" id="login-password" required placeholder="••••••••" class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                    </div>
+                    <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 rounded-xl shadow transition text-sm">
+                        Sign In
+                    </button>
+                    <!-- Quick Demo Buttons -->
+                    <div class="pt-3 border-t border-slate-100 text-center">
+                        <span class="text-[11px] text-slate-400 block mb-2">Quick Sign-In for Testing:</span>
+                        <div class="flex gap-2">
+                            <button type="button" onclick="quickFill('prof.smith@uni.edu', 'SecurePassword123!')" class="flex-1 text-xs bg-purple-50 text-purple-700 border border-purple-200 py-1.5 rounded-lg hover:bg-purple-100 font-medium">
+                                Prof. Smith (Admin)
+                            </button>
+                            <button type="button" onclick="quickFill('student.john@uni.edu', 'Password123!')" class="flex-1 text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 py-1.5 rounded-lg hover:bg-emerald-100 font-medium">
+                                Student John
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Register Form -->
+                <form id="form-register" onsubmit="handleRegister(event)" class="space-y-4 hidden">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
+                        <input type="text" id="reg-name" required placeholder="Alex Doe" class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+                        <input type="email" id="reg-email" required placeholder="alex@university.edu" class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Password (6+ characters)</label>
+                        <input type="password" id="reg-password" required minlength="6" placeholder="••••••••" class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                    </div>
+                    <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 rounded-xl shadow transition text-sm">
+                        Create Account
+                    </button>
+                </form>
+            </div>
+
+            <div class="bg-slate-50 px-6 py-3 border-t border-slate-100 text-right">
+                <button onclick="closeModal('modal-auth')" class="text-xs text-slate-500 hover:text-slate-700 font-medium">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CREATE CLASS MODAL (REQ-F-002) -->
+    <div id="modal-create-class" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl p-6 border border-slate-100">
+            <h3 class="text-lg font-bold text-slate-900 mb-2">Create New Class</h3>
+            <p class="text-xs text-slate-500 mb-4">You will automatically become the full <strong>Administrator</strong> of this class (REQ-F-002).</p>
+            <form onsubmit="handleCreateClass(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Course / Group Title</label>
+                    <input type="text" id="new-class-title" required placeholder="e.g.: Computer Networks (CS-21)" class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Description / Syllabus Overview</label>
+                    <textarea id="new-class-desc" rows="3" placeholder="Syllabus topics, grading policy, laboratory exercises..." class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2 focus:ring-2 focus:ring-brand-500 focus:outline-none"></textarea>
+                </div>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" onclick="closeModal('modal-create-class')" class="text-xs font-semibold text-slate-600 px-4 py-2 hover:bg-slate-100 rounded-xl transition">Cancel</button>
+                    <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold px-5 py-2 rounded-xl shadow transition">Create Class</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JOIN CLASS VIA INVITE MODAL (REQ-F-003, BDD SCENARIO 1) -->
+    <div id="modal-join-class" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl p-6 border border-slate-100">
+            <h3 class="text-lg font-bold text-slate-900 mb-2">Join Class via Invite</h3>
+            <p class="text-xs text-slate-500 mb-4">Enter the invite token provided by your instructor. You will join with the <strong>Student</strong> role (REQ-F-003).</p>
+            <form onsubmit="handleJoinClass(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Invite Token or URL</label>
+                    <input type="text" id="join-invite-token" required placeholder="inv_AbCdEf12345..." class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-brand-500 focus:outline-none font-mono">
+                </div>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" onclick="closeModal('modal-join-class')" class="text-xs font-semibold text-slate-600 px-4 py-2 hover:bg-slate-100 rounded-xl transition">Cancel</button>
+                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-5 py-2 rounded-xl shadow transition">Join Class</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- GENERATE INVITE MODAL (REQ-F-003) -->
+    <div id="modal-generate-invite" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl p-6 border border-slate-100">
+            <h3 class="text-lg font-bold text-slate-900 mb-2">Student Invite Link Generator</h3>
+            <p class="text-xs text-slate-500 mb-4">Generate an expiring invite link for student self-enrollment (REQ-F-003).</p>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Expiration Window (Hours)</label>
+                    <select id="invite-hours" class="w-full text-sm border border-slate-300 rounded-xl px-3 py-2 bg-white">
+                        <option value="24">24 Hours (1 Day)</option>
+                        <option value="168" selected>168 Hours (7 Days Default)</option>
+                        <option value="720">720 Hours (30 Days)</option>
+                    </select>
+                </div>
+                <button onclick="handleGenerateInvite()" class="w-full bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold py-2.5 rounded-xl transition shadow">
+                    Generate New Token
+                </button>
+                <div id="generated-invite-box" class="hidden p-3 bg-indigo-50 border border-indigo-200 rounded-xl space-y-2">
+                    <span class="text-[11px] font-bold text-indigo-900 block">Student Invite Token:</span>
+                    <input type="text" id="generated-invite-token-text" readonly class="w-full text-xs font-mono bg-white border border-indigo-200 rounded-lg p-2 text-slate-800">
+                    <button onclick="copyInviteToken()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 rounded-lg transition font-medium">
+                        <i class="fa-regular fa-copy"></i> Copy Token
+                    </button>
+                </div>
+            </div>
+            <div class="flex justify-end pt-4">
+                <button type="button" onclick="closeModal('modal-generate-invite')" class="text-xs font-semibold text-slate-600 px-4 py-2 hover:bg-slate-100 rounded-xl transition">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MEMBERS ROSTER MODAL (REQ-F-004) -->
+    <div id="modal-members" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-2xl w-full shadow-2xl p-6 border border-slate-100 max-h-[80vh] flex flex-col">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900">Class Member Roster</h3>
+                    <p class="text-xs text-slate-500">Manage member permissions and promote students to administrators (REQ-F-004)</p>
+                </div>
+                <button onclick="closeModal('modal-members')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="overflow-y-auto flex-grow my-4">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-600">
+                            <th class="p-2.5 rounded-l-lg">User</th>
+                            <th class="p-2.5">Email</th>
+                            <th class="p-2.5">Current Role</th>
+                            <th class="p-2.5 rounded-r-lg text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="members-table-body" class="divide-y divide-slate-100">
+                        <!-- Injected members -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- CREATE SUBJECT MODAL (REQ-F-005) -->
+    <div id="modal-create-subject" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl p-6 border border-slate-100">
+            <h3 class="text-lg font-bold text-slate-900 mb-2">Add Academic Subject</h3>
+            <p class="text-xs text-slate-500 mb-4">Creates a strict parent-child hierarchy <code>Class -> Subject</code> (REQ-F-005).</p>
+            <form onsubmit="handleCreateSubject(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Subject Title</label>
+                    <input type="text" id="new-subject-title" required placeholder="e.g.: Module 1: Linear Algebra" class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Subject Description</label>
+                    <textarea id="new-subject-desc" rows="2" placeholder="Lecture topics, lab requirements..." class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2 focus:ring-2 focus:ring-brand-500 focus:outline-none"></textarea>
+                </div>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" onclick="closeModal('modal-create-subject')" class="text-xs font-semibold text-slate-600 px-4 py-2 hover:bg-slate-100 rounded-xl transition">Cancel</button>
+                    <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold px-5 py-2 rounded-xl shadow transition">Create Subject</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- UPLOAD MATERIAL MODAL (REQ-F-006, REQ-NF-001, BDD SCENARIO 3) -->
+    <div id="modal-create-material" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl p-6 border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <h3 class="text-lg font-bold text-slate-900 mb-1">Add Educational Material</h3>
+            <p class="text-xs text-slate-500 mb-4">Supports individual files up to <strong>500 MB</strong> (524,288,000 bytes) or external links (REQ-NF-001).</p>
+
+            <form onsubmit="handleCreateMaterial(event)" class="space-y-4">
+                <input type="hidden" id="mat-target-subject-id">
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Material Type</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="border border-slate-200 rounded-xl p-3 flex items-center gap-2 cursor-pointer has-[:checked]:border-brand-600 has-[:checked]:bg-indigo-50">
+                            <input type="radio" name="mat-type" value="file" checked onchange="toggleMatTypeFields()" class="text-brand-600">
+                            <span class="text-xs font-medium text-slate-800"><i class="fa-solid fa-file-arrow-up"></i> File (up to 500MB)</span>
+                        </label>
+                        <label class="border border-slate-200 rounded-xl p-3 flex items-center gap-2 cursor-pointer has-[:checked]:border-brand-600 has-[:checked]:bg-indigo-50">
+                            <input type="radio" name="mat-type" value="link" onchange="toggleMatTypeFields()" class="text-brand-600">
+                            <span class="text-xs font-medium text-slate-800"><i class="fa-solid fa-link"></i> Web Link</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Material / Assignment Title</label>
+                    <input type="text" id="mat-title" required placeholder="Laboratory Exercise #1: Vector Spaces" class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Description / Instructions</label>
+                    <textarea id="mat-desc" rows="2" placeholder="Submission guidelines, grading criteria..." class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2 focus:ring-2 focus:ring-brand-500 focus:outline-none"></textarea>
+                </div>
+
+                <!-- FILE SPECIFIC FIELDS -->
+                <div id="mat-file-fields" class="space-y-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">File Name</label>
+                        <input type="text" id="mat-file-name" placeholder="lab1_manual.pdf" class="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">File Size (in bytes)</label>
+                        <input type="number" id="mat-file-size" value="1048576" class="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white font-mono">
+                        <div class="flex gap-1.5 mt-2 flex-wrap">
+                            <button type="button" onclick="setFileSize(1048576)" class="text-[10px] bg-white border border-slate-200 px-2 py-0.5 rounded hover:bg-slate-100">1 MB</button>
+                            <button type="button" onclick="setFileSize(104857600)" class="text-[10px] bg-white border border-slate-200 px-2 py-0.5 rounded hover:bg-slate-100">100 MB</button>
+                            <button type="button" onclick="setFileSize(524288000)" class="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded font-bold hover:bg-emerald-100">Exact 500 MB (Limit)</button>
+                            <button type="button" onclick="setFileSize(629145600)" class="text-[10px] bg-rose-50 text-rose-800 border border-rose-300 px-2 py-0.5 rounded font-bold hover:bg-rose-100">600 MB (BDD 3 Error 413)</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LINK SPECIFIC FIELDS -->
+                <div id="mat-link-fields" class="space-y-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl hidden">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Link URL</label>
+                        <input type="url" id="mat-link-url" placeholder="https://docs.google.com/document/d/..." class="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white font-mono">
+                    </div>
+                </div>
+
+                <!-- DEADLINE -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Submission Deadline (REQ-F-007)</label>
+                    <input type="datetime-local" id="mat-deadline" class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" onclick="closeModal('modal-create-material')" class="text-xs font-semibold text-slate-600 px-4 py-2 hover:bg-slate-100 rounded-xl transition">Cancel</button>
+                    <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold px-5 py-2 rounded-xl shadow transition">Save Material</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- EXTENSION REQUEST MODAL (STUDENT: REQ-F-009, BDD SCENARIO 2) -->
+    <div id="modal-submit-extension" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl p-6 border border-slate-100">
+            <h3 class="text-lg font-bold text-slate-900 mb-1">Request Deadline Extension</h3>
+            <p class="text-xs text-slate-500 mb-4">Submit a formal extension request with comment to the course administrator (REQ-F-009).</p>
+            <form onsubmit="handleSubmitExtension(event)" class="space-y-4">
+                <input type="hidden" id="ext-material-id">
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Reason for Extension (Comment)</label>
+                    <textarea id="ext-comment" required rows="3" placeholder="e.g.: Medical condition, doctor certificate attached..." class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2 focus:ring-2 focus:ring-brand-500 focus:outline-none"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Requested New Deadline</label>
+                    <input type="datetime-local" id="ext-requested-date" required class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" onclick="closeModal('modal-submit-extension')" class="text-xs font-semibold text-slate-600 px-4 py-2 hover:bg-slate-100 rounded-xl transition">Cancel</button>
+                    <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold px-5 py-2 rounded-xl shadow transition">Submit Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- EXTENSION REQUESTS ADMIN REVIEW MODAL (REQ-F-010, ADD-006) -->
+    <div id="modal-class-extensions" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-3xl w-full shadow-2xl p-6 border border-slate-100 max-h-[85vh] flex flex-col">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900">Student Extension Requests</h3>
+                    <p class="text-xs text-slate-500">Approve (with automated deadline shift) or reject requests (REQ-F-010, ADD-006)</p>
+                </div>
+                <button onclick="closeModal('modal-class-extensions')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="extensions-review-container" class="overflow-y-auto flex-grow my-4 space-y-3">
+                <!-- Injected extension cards -->
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT APPLICATION LOGIC -->
+    <script>
+        const API_BASE = '/api/v1';
+        let currentToken = localStorage.getItem('labmanager_token') || '';
+        let currentUser = null;
+        let activeClassId = null;
+        let activeClassRole = 'student';
+
+        // Initialize App on DOM Ready
+        document.addEventListener('DOMContentLoaded', () => {
+            if (currentToken) {
+                fetchProfile();
+            } else {
+                showGuest();
+            }
+        });
+
+        // Navigation Controller
+        function navigate(viewName) {
+            if (!currentToken && viewName !== 'spec') {
+                openAuthModal('login');
+                return;
+            }
+
+            document.querySelectorAll('main > section').forEach(sec => sec.classList.add('hidden'));
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('tab-active'));
+
+            const targetView = document.getElementById(`view-${viewName}`);
+            if (targetView) targetView.classList.remove('hidden');
+
+            const tab = document.getElementById(`tab-${viewName}`);
+            if (tab) tab.classList.add('tab-active');
+
+            if (viewName === 'classes') loadClasses();
+            if (viewName === 'calendar') loadCalendarEvents();
+            if (viewName === 'reminders') loadReminders();
+            if (viewName === 'logs') loadAuditLogs();
+            if (viewName === 'spec') loadOpenApiSpec();
+        }
+
+        // Global Alert (RFC 7807 problem details)
+        function showAlert(type, title, detail, invalidParams = []) {
+            const container = document.getElementById('global-alert-container');
+            const alertBox = document.getElementById('global-alert');
+            const icon = document.getElementById('global-alert-icon');
+            const titleEl = document.getElementById('global-alert-title');
+            const detailEl = document.getElementById('global-alert-detail');
+            const paramsEl = document.getElementById('global-alert-params');
+
+            container.classList.remove('hidden');
+            titleEl.textContent = title || 'Notice';
+            detailEl.textContent = detail || '';
+
+            paramsEl.innerHTML = '';
+            if (invalidParams && invalidParams.length > 0) {
+                invalidParams.forEach(p => {
+                    const row = document.createElement('div');
+                    row.className = 'font-mono text-[11px] bg-white/60 p-1 rounded';
+                    row.textContent = `• [${p.name}]: ${p.reason}`;
+                    paramsEl.appendChild(row);
+                });
+            }
+
+            if (type === 'error') {
+                alertBox.className = 'p-4 rounded-xl border shadow-sm flex items-start justify-between bg-rose-50 border-rose-200 text-rose-900';
+                icon.className = 'fa-solid fa-circle-exclamation text-rose-600 text-lg mt-0.5';
+            } else {
+                alertBox.className = 'p-4 rounded-xl border shadow-sm flex items-start justify-between bg-emerald-50 border-emerald-200 text-emerald-900';
+                icon.className = 'fa-solid fa-circle-check text-emerald-600 text-lg mt-0.5';
+            }
+        }
+
+        function dismissAlert() {
+            document.getElementById('global-alert-container').classList.add('hidden');
+        }
+
+        // Generic API Fetch Helper with RFC 7807 Error Handling
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            const headers = { 'Content-Type': 'application/json' };
+            if (currentToken) headers['Authorization'] = `Bearer ${currentToken}`;
+
+            const config = { method, headers };
+            if (body) config.body = JSON.stringify(body);
+
+            try {
+                const res = await fetch(`${API_BASE}${endpoint}`, config);
+                if (res.status === 204) return null;
+
+                const data = await res.json().catch(() => ({}));
+
+                if (!res.ok) {
+                    // RFC 7807 Problem Details Handler
+                    showAlert('error', data.title || `Error ${res.status}`, data.detail || 'Failed to process request', data.invalid_params || []);
+                    if (res.status === 401 && endpoint !== '/auth/login') {
+                        logout();
+                    }
+                    throw new Error(data.detail || `HTTP ${res.status}`);
+                }
+                return data;
+            } catch (err) {
+                console.error('API Error:', err);
+                throw err;
+            }
+        }
+
+        // Profile & Auth
+        async function fetchProfile() {
+            try {
+                const data = await apiCall('/auth/me');
+                currentUser = data;
+                document.getElementById('user-profile-badge').classList.remove('hidden');
+                document.getElementById('user-profile-badge').classList.add('flex');
+                document.getElementById('btn-login-open').classList.add('hidden');
+                document.getElementById('user-display-name').textContent = data.full_name || 'User';
+                document.getElementById('user-display-email').textContent = data.email;
+                document.getElementById('nav-menu').classList.remove('hidden');
+                document.getElementById('view-guest').classList.add('hidden');
+
+                navigate('classes');
+                loadUnreadRemindersCount();
+            } catch (e) {
+                showGuest();
+            }
+        }
+
+        function showGuest() {
+            document.getElementById('user-profile-badge').classList.add('hidden');
+            document.getElementById('btn-login-open').classList.remove('hidden');
+            document.getElementById('nav-menu').classList.add('hidden');
+            document.querySelectorAll('main > section').forEach(sec => sec.classList.add('hidden'));
+            document.getElementById('view-guest').classList.remove('hidden');
+        }
+
+        function logout() {
+            currentToken = '';
+            currentUser = null;
+            localStorage.removeItem('labmanager_token');
+            showGuest();
+            showAlert('success', 'Session Ended', 'You have successfully signed out.');
+        }
+
+        // Auth Modal & Handlers
+        function openAuthModal(tab = 'login') {
+            switchAuthTab(tab);
+            openModal('modal-auth');
+        }
+
+        function switchAuthTab(tab) {
+            if (tab === 'login') {
+                document.getElementById('form-login').classList.remove('hidden');
+                document.getElementById('form-register').classList.add('hidden');
+                document.getElementById('auth-tab-btn-login').className = 'flex-1 py-4 text-center font-bold text-sm border-b-2 border-brand-600 text-brand-600';
+                document.getElementById('auth-tab-btn-register').className = 'flex-1 py-4 text-center font-semibold text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-600';
+            } else {
+                document.getElementById('form-login').classList.add('hidden');
+                document.getElementById('form-register').classList.remove('hidden');
+                document.getElementById('auth-tab-btn-register').className = 'flex-1 py-4 text-center font-bold text-sm border-b-2 border-brand-600 text-brand-600';
+                document.getElementById('auth-tab-btn-login').className = 'flex-1 py-4 text-center font-semibold text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-600';
+            }
+        }
+
+        function quickFill(email, pwd) {
+            document.getElementById('login-email').value = email;
+            document.getElementById('login-password').value = pwd;
+        }
+
+        async function demoLoginAdmin() {
+            openAuthModal('login');
+            quickFill('prof.smith@uni.edu', 'SecurePassword123!');
+        }
+
+        async function demoLoginStudent() {
+            openAuthModal('login');
+            quickFill('student.john@uni.edu', 'Password123!');
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            try {
+                const data = await apiCall('/auth/login', 'POST', { email, password });
+                currentToken = data.access_token;
+                localStorage.setItem('labmanager_token', currentToken);
+                closeModal('modal-auth');
+                showAlert('success', 'Sign In Successful', `Welcome back, ${data.user.email}!`);
+                fetchProfile();
+            } catch (err) {}
+        }
+
+        async function handleRegister(e) {
+            e.preventDefault();
+            const full_name = document.getElementById('reg-name').value;
+            const email = document.getElementById('reg-email').value;
+            const password = document.getElementById('reg-password').value;
+
+            try {
+                const data = await apiCall('/auth/register', 'POST', { email, password, full_name });
+                currentToken = data.access_token;
+                localStorage.setItem('labmanager_token', currentToken);
+                closeModal('modal-auth');
+                showAlert('success', 'Account Created', 'Registration completed successfully (REQ-F-001).');
+                fetchProfile();
+            } catch (err) {}
+        }
+
+        // Classes Management
+        async function loadClasses() {
+            try {
+                const res = await apiCall('/classes');
+                const grid = document.getElementById('classes-list-grid');
+                const empty = document.getElementById('classes-empty-state');
+                grid.innerHTML = '';
+
+                if (!res.items || res.items.length === 0) {
+                    empty.classList.remove('hidden');
+                    return;
+                }
+                empty.classList.add('hidden');
+
+                res.items.forEach(c => {
+                    const isAdmin = c.current_user_role === 'administrator';
+                    const card = document.createElement('div');
+                    card.className = `bg-white rounded-2xl p-5 border transition shadow-sm hover:shadow-md flex flex-col justify-between ${isAdmin ? 'border-purple-200 hover:border-purple-300' : 'border-emerald-200 hover:border-emerald-300'}`;
+
+                    card.innerHTML = `
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-xs px-2.5 py-0.5 rounded-full font-bold ${isAdmin ? 'badge-admin' : 'badge-student'}">
+                                    <i class="fa-solid ${isAdmin ? 'fa-crown text-purple-600' : 'fa-graduation-cap text-emerald-600'} mr-1"></i>
+                                    ${isAdmin ? 'Administrator' : 'Student'}
+                                </span>
+                                <span class="text-[10px] text-slate-400">${c.created_at ? c.created_at.substring(0, 10) : ''}</span>
+                            </div>
+                            <h4 class="text-base font-bold text-slate-900 mb-1">${c.title}</h4>
+                            <p class="text-xs text-slate-500 line-clamp-2 mb-4">${c.description || 'No additional description'}</p>
+                        </div>
+                        <div class="pt-3 border-t border-slate-100 flex justify-between items-center">
+                            <span class="text-[11px] text-slate-400 font-medium">Class ID: ${c.id.substring(0, 8)}...</span>
+                            <button onclick="openClassWorkspace('${c.id}', '${c.title}', '${c.description || ''}', '${c.current_user_role}')" class="text-xs bg-brand-600 hover:bg-brand-700 text-white font-semibold px-3 py-1.5 rounded-lg transition shadow-sm">
+                                Open Workspace <i class="fa-solid fa-arrow-right ml-1"></i>
+                            </button>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+            } catch (err) {}
+        }
+
+        async function handleCreateClass(e) {
+            e.preventDefault();
+            const title = document.getElementById('new-class-title').value;
+            const description = document.getElementById('new-class-desc').value;
+
+            try {
+                await apiCall('/classes', 'POST', { title, description });
+                closeModal('modal-create-class');
+                showAlert('success', 'Class Created', 'You automatically became the Administrator (REQ-F-002).');
+                loadClasses();
+            } catch (err) {}
+        }
+
+        async function handleJoinClass(e) {
+            e.preventDefault();
+            let token = document.getElementById('join-invite-token').value.trim();
+            if (token.includes('/join/')) {
+                token = token.split('/join/')[1];
+            }
+
+            try {
+                const res = await apiCall(`/invites/${token}/join`, 'POST');
+                closeModal('modal-join-class');
+                showAlert('success', 'Joined Successfully', 'Enrolled in class as Student (REQ-F-003, BDD Scenario 1).');
+                loadClasses();
+            } catch (err) {}
+        }
+
+        // Class Workspace
+        async function openClassWorkspace(classId, title, desc, role) {
+            activeClassId = classId;
+            activeClassRole = role;
+
+            document.querySelectorAll('main > section').forEach(sec => sec.classList.add('hidden'));
+            document.getElementById('view-class-workspace').classList.remove('hidden');
+
+            document.getElementById('workspace-class-title').textContent = title;
+            document.getElementById('workspace-class-title-crumb').textContent = title;
+            document.getElementById('workspace-class-desc').textContent = desc || 'Course workspace';
+
+            const badge = document.getElementById('workspace-class-role-badge');
+            const adminActions = document.getElementById('workspace-admin-actions');
+
+            if (role === 'administrator') {
+                badge.className = 'text-xs px-2.5 py-0.5 rounded-full font-bold badge-admin';
+                badge.innerHTML = '<i class="fa-solid fa-crown mr-1"></i> Educator (Administrator)';
+                adminActions.classList.remove('hidden');
+            } else {
+                badge.className = 'text-xs px-2.5 py-0.5 rounded-full font-bold badge-student';
+                badge.innerHTML = '<i class="fa-solid fa-graduation-cap mr-1"></i> Student (Read-Only)';
+                adminActions.classList.add('hidden');
+            }
+
+            loadWorkspaceSubjects();
+        }
+
+        async function loadWorkspaceSubjects() {
+            const container = document.getElementById('subjects-container');
+            container.innerHTML = '<div class="text-xs text-slate-400 p-4 text-center">Loading subjects...</div>';
+
+            try {
+                const res = await apiCall(`/classes/${activeClassId}/subjects`);
+                container.innerHTML = '';
+
+                if (!res.items || res.items.length === 0) {
+                    container.innerHTML = `
+                        <div class="bg-white p-8 rounded-2xl border border-dashed border-slate-300 text-center">
+                            <i class="fa-solid fa-folder-tree text-3xl text-slate-300 mb-2"></i>
+                            <h4 class="text-sm font-semibold text-slate-700">No subjects created yet</h4>
+                            ${activeClassRole === 'administrator' ? '<p class="text-xs text-slate-500 mt-1">Create your first academic subject using the button above.</p>' : ''}
+                        </div>
+                    `;
+                    return;
+                }
+
+                for (const sub of res.items) {
+                    const subCard = document.createElement('div');
+                    subCard.className = 'bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm';
+                    subCard.innerHTML = `
+                        <div class="p-4 bg-slate-50/70 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                                <h4 class="text-base font-bold text-slate-900">${sub.title}</h4>
+                                <p class="text-xs text-slate-500">${sub.description || ''}</p>
+                            </div>
+                            ${activeClassRole === 'administrator' ? `
+                                <button onclick="openCreateMaterialModal('${sub.id}')" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold px-3 py-1.5 rounded-lg border border-indigo-200 transition">
+                                    <i class="fa-solid fa-plus mr-1"></i> Add Material
+                                </button>
+                            ` : ''}
+                        </div>
+                        <div id="materials-container-${sub.id}" class="p-4 space-y-3">
+                            <div class="text-[11px] text-slate-400">Loading materials...</div>
+                        </div>
+                    `;
+                    container.appendChild(subCard);
+                    loadSubjectMaterials(sub.id);
+                }
+            } catch (err) {}
+        }
+
+        async function loadSubjectMaterials(subjectId) {
+            const matContainer = document.getElementById(`materials-container-${subjectId}`);
+            try {
+                const res = await apiCall(`/classes/${activeClassId}/subjects/${subjectId}/materials`);
+                matContainer.innerHTML = '';
+
+                if (!res.items || res.items.length === 0) {
+                    matContainer.innerHTML = '<div class="text-xs text-slate-400 italic">No materials attached yet</div>';
+                    return;
+                }
+
+                res.items.forEach(m => {
+                    const isFile = m.type === 'file';
+                    const item = document.createElement('div');
+                    item.className = 'p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3';
+
+                    let deadlineBadge = '';
+                    if (m.deadline) {
+                        deadlineBadge = `
+                            <span class="inline-flex items-center gap-1 text-[11px] bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full font-medium">
+                                <i class="fa-regular fa-clock"></i> Deadline: ${m.deadline.replace('T', ' ').substring(0, 16)}
+                            </span>
+                        `;
+                    }
+
+                    item.innerHTML = `
+                        <div class="flex items-start space-x-3">
+                            <div class="w-8 h-8 rounded-lg ${isFile ? 'bg-indigo-100 text-indigo-600' : 'bg-teal-100 text-teal-600'} flex items-center justify-center text-sm mt-0.5 flex-shrink-0">
+                                <i class="fa-solid ${isFile ? 'fa-file-lines' : 'fa-link'}"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <h5 class="text-xs font-bold text-slate-800">${m.title}</h5>
+                                    ${deadlineBadge}
+                                </div>
+                                <p class="text-[11px] text-slate-500 mt-0.5">${m.description || ''}</p>
+                                <div class="text-[10px] text-slate-400 mt-1 flex gap-2 font-mono">
+                                    ${isFile ? `<span>File: ${m.file_name} (${(m.file_size_bytes / 1024).toFixed(1)} KB)</span>` : `<a href="${m.link_url}" target="_blank" class="text-brand-600 underline">${m.link_url}</a>`}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-2 self-end sm:self-center">
+                            ${isFile ? `
+                                <a href="${m.file_url}" target="_blank" class="text-xs bg-white border border-slate-300 hover:bg-slate-100 px-2.5 py-1 rounded-lg text-slate-700 transition">
+                                    <i class="fa-solid fa-download"></i> Download
+                                </a>
+                            ` : ''}
+
+                            ${activeClassRole === 'student' && m.deadline ? `
+                                <button onclick="openSubmitExtensionModal('${m.id}')" class="text-xs bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 px-2.5 py-1 rounded-lg transition">
+                                    <i class="fa-solid fa-hand-holding-hand"></i> Request Extension
+                                </button>
+                            ` : ''}
+
+                            ${activeClassRole === 'administrator' ? `
+                                <button onclick="handleDeleteMaterial('${subjectId}', '${m.id}')" class="text-xs bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 px-2 py-1 rounded-lg transition" title="Delete Material (REQ-F-011)">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    `;
+                    matContainer.appendChild(item);
+                });
+            } catch (err) {}
+        }
+
+        // Material Deletion (REQ-F-011 / Addendum 02)
+        async function handleDeleteMaterial(subjectId, materialId) {
+            if (!confirm('Are you sure you want to permanently delete this material?\nThis will cascade deletion to associated calendar deadlines and cancel pending extension requests (REQ-F-011).')) {
+                return;
+            }
+
+            try {
+                await apiCall(`/classes/${activeClassId}/subjects/${subjectId}/materials/${materialId}`, 'DELETE');
+                showAlert('success', 'Material Deleted', 'Cascading cleanup executed across calendar and requests (REQ-F-011).');
+                loadSubjectMaterials(subjectId);
+            } catch (err) {}
+        }
+
+        // Modals Management
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        function openInviteModal() {
+            document.getElementById('generated-invite-box').classList.add('hidden');
+            openModal('modal-generate-invite');
+        }
+
+        async function handleGenerateInvite() {
+            const hours = parseInt(document.getElementById('invite-hours').value) || 168;
+            try {
+                const res = await apiCall(`/classes/${activeClassId}/invites`, 'POST', { expires_in_hours: hours });
+                document.getElementById('generated-invite-box').classList.remove('hidden');
+                document.getElementById('generated-invite-token-text').value = res.invite_token;
+                showAlert('success', 'Invite Generated', `Token is valid for ${hours} hours (REQ-F-003).`);
+            } catch (err) {}
+        }
+
+        function copyInviteToken() {
+            const input = document.getElementById('generated-invite-token-text');
+            input.select();
+            navigator.clipboard.writeText(input.value);
+            alert('Invite token copied to clipboard!');
+        }
+
+        async function openMembersModal() {
+            openModal('modal-members');
+            const tbody = document.getElementById('members-table-body');
+            tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-400">Loading member roster...</td></tr>';
+
+            try {
+                const res = await apiCall(`/classes/${activeClassId}/members`);
+                tbody.innerHTML = '';
+                res.items.forEach(m => {
+                    const isSelf = currentUser && currentUser.id === m.user_id;
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-slate-50';
+                    row.innerHTML = `
+                        <td class="p-2.5 font-bold text-slate-800">${m.full_name || 'Member'} ${isSelf ? '<span class="text-[10px] text-brand-600">(You)</span>' : ''}</td>
+                        <td class="p-2.5 text-slate-500 font-mono">${m.email}</td>
+                        <td class="p-2.5">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${m.role === 'administrator' ? 'badge-admin' : 'badge-student'}">
+                                ${m.role === 'administrator' ? 'Administrator' : 'Student'}
+                            </span>
+                        </td>
+                        <td class="p-2.5 text-right">
+                            ${(activeClassRole === 'administrator' && m.role === 'student' && !isSelf) ? `
+                                <button onclick="promoteMember('${m.user_id}')" class="text-[10px] bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 px-2 py-1 rounded font-medium transition">
+                                    <i class="fa-solid fa-crown mr-1"></i> Make Admin
+                                </button>
+                            ` : '-'}
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (err) {}
+        }
+
+        async function promoteMember(userId) {
+            if (!confirm('Grant full Class Administrator rights to this student? (REQ-F-004)')) return;
+            try {
+                await apiCall(`/classes/${activeClassId}/members/${userId}/role`, 'PATCH', { role: 'administrator' });
+                showAlert('success', 'Role Updated', 'User elevated to Class Administrator (REQ-F-004).');
+                openMembersModal();
+            } catch (err) {}
+        }
+
+        async function handleCreateSubject(e) {
+            e.preventDefault();
+            const title = document.getElementById('new-subject-title').value;
+            const description = document.getElementById('new-subject-desc').value;
+
+            try {
+                await apiCall(`/classes/${activeClassId}/subjects`, 'POST', { title, description });
+                closeModal('modal-create-subject');
+                showAlert('success', 'Subject Created', 'Academic discipline added to curriculum (REQ-F-005).');
+                loadWorkspaceSubjects();
+            } catch (err) {}
+        }
+
+        function openCreateMaterialModal(subjectId) {
+            document.getElementById('mat-target-subject-id').value = subjectId;
+            openModal('modal-create-material');
+        }
+
+        function toggleMatTypeFields() {
+            const isFile = document.querySelector('input[name="mat-type"]:checked').value === 'file';
+            document.getElementById('mat-file-fields').classList.toggle('hidden', !isFile);
+            document.getElementById('mat-link-fields').classList.toggle('hidden', isFile);
+        }
+
+        function setFileSize(bytes) {
+            document.getElementById('mat-file-size').value = bytes;
+            if (bytes > 524288000) {
+                showAlert('error', 'Warning: 500MB Limit Exceeded', 'Files exceeding 524,288,000 bytes will be rejected with HTTP 413 (REQ-NF-001).');
+            }
+        }
+
+        async function handleCreateMaterial(e) {
+            e.preventDefault();
+            const subjectId = document.getElementById('mat-target-subject-id').value;
+            const type = document.querySelector('input[name="mat-type"]:checked').value;
+            const title = document.getElementById('mat-title').value;
+            const description = document.getElementById('mat-desc').value;
+            const deadline = document.getElementById('mat-deadline').value ? `${document.getElementById('mat-deadline').value}:00Z` : null;
+
+            const payload = { title, description, type, deadline };
+
+            if (type === 'file') {
+                payload.file_name = document.getElementById('mat-file-name').value || 'document.pdf';
+                payload.file_size_bytes = parseInt(document.getElementById('mat-file-size').value) || 1024;
+            } else {
+                payload.link_url = document.getElementById('mat-link-url').value;
+            }
+
+            try {
+                await apiCall(`/classes/${activeClassId}/subjects/${subjectId}/materials`, 'POST', payload);
+                closeModal('modal-create-material');
+                showAlert('success', 'Material Saved', 'Uploaded successfully and deadline added to calendar (REQ-F-006, REQ-F-007).');
+                loadSubjectMaterials(subjectId);
+            } catch (err) {}
+        }
+
+        // Student Extension Request
+        function openSubmitExtensionModal(materialId) {
+            document.getElementById('ext-material-id').value = materialId;
+            openModal('modal-submit-extension');
+        }
+
+        async function handleSubmitExtension(e) {
+            e.preventDefault();
+            const materialId = document.getElementById('ext-material-id').value;
+            const comment = document.getElementById('ext-comment').value;
+            const date = document.getElementById('ext-requested-date').value;
+            const requested_deadline = date ? `${date}:00Z` : '';
+
+            try {
+                await apiCall(`/classes/${activeClassId}/materials/${materialId}/extension-requests`, 'POST', {
+                    comment,
+                    requested_deadline
+                });
+                closeModal('modal-submit-extension');
+                showAlert('success', 'Request Submitted', 'Educator will review your extension request (REQ-F-009, BDD Scenario 2).');
+            } catch (err) {}
+        }
+
+        // Admin Extension Review
+        async function openClassExtensionsModal() {
+            openModal('modal-class-extensions');
+            const container = document.getElementById('extensions-review-container');
+            container.innerHTML = '<div class="text-xs text-slate-400 p-4 text-center">Loading extension requests...</div>';
+
+            try {
+                const res = await apiCall(`/classes/${activeClassId}/extension-requests`);
+                container.innerHTML = '';
+
+                if (!res.items || res.items.length === 0) {
+                    container.innerHTML = '<div class="text-xs text-slate-400 text-center py-6">No active extension requests</div>';
+                    return;
+                }
+
+                res.items.forEach(r => {
+                    const isPending = r.status === 'pending';
+                    const card = document.createElement('div');
+                    card.className = `p-4 rounded-xl border ${isPending ? 'bg-amber-50/50 border-amber-200' : 'bg-slate-50 border-slate-200'}`;
+
+                    card.innerHTML = `
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-bold text-slate-900">Request from student ID: ${r.requester_id.substring(0, 10)}</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full font-bold ${isPending ? 'bg-amber-100 text-amber-800' : (r.status === 'approved' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800')}">
+                                        ${r.status.toUpperCase()}
+                                    </span>
+                                </div>
+                                <p class="text-xs text-slate-600 mt-1">«${r.comment}»</p>
+                                <div class="text-[11px] text-slate-500 mt-2 font-mono">
+                                    Requested Deadline: <strong>${r.requested_deadline.replace('T', ' ').substring(0, 16)}</strong>
+                                </div>
+                            </div>
+
+                            ${isPending ? `
+                                <div class="flex flex-col gap-1.5 min-w-[140px]">
+                                    <button onclick="decideExtension('${r.id}', 'approved', 'class')" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-1 px-2.5 rounded-lg transition shadow-sm">
+                                        <i class="fa-solid fa-check"></i> Approve (Class)
+                                    </button>
+                                    <button onclick="decideExtension('${r.id}', 'rejected', 'user')" class="text-xs bg-rose-600 hover:bg-rose-700 text-white font-semibold py-1 px-2.5 rounded-lg transition shadow-sm">
+                                        <i class="fa-solid fa-xmark"></i> Reject
+                                    </button>
+                                </div>
+                            ` : `<div class="text-[11px] text-slate-400 italic">Decision recorded</div>`}
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (err) {}
+        }
+
+        async function decideExtension(requestId, status, scope = 'class') {
+            const comment = prompt('Educator decision comment:', status === 'approved' ? 'Approved due to medical certificate' : 'Rejected');
+            if (comment === null) return;
+
+            try {
+                await apiCall(`/classes/${activeClassId}/extension-requests/${requestId}/decision`, 'PATCH', {
+                    status,
+                    resolution_comment: comment,
+                    scope
+                });
+                showAlert('success', 'Decision Recorded', `Request ${status === 'approved' ? 'approved and deadline shifted' : 'rejected'} (REQ-F-010).`);
+                openClassExtensionsModal();
+            } catch (err) {}
+        }
+
+        // Calendar
+        async function loadCalendarEvents() {
+            const timeline = document.getElementById('calendar-timeline');
+            const empty = document.getElementById('calendar-empty');
+            timeline.innerHTML = '<div class="text-xs text-slate-400 p-4 text-center">Loading calendar events...</div>';
+
+            try {
+                const res = await apiCall('/calendar');
+                timeline.innerHTML = '';
+
+                if (!res.entries || res.entries.length === 0) {
+                    empty.classList.remove('hidden');
+                    return;
+                }
+                empty.classList.add('hidden');
+
+                res.entries.forEach(e => {
+                    const item = document.createElement('div');
+                    item.className = 'bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between hover:border-brand-300 transition';
+                    item.innerHTML = `
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-xl bg-indigo-50 text-brand-600 flex items-center justify-center font-bold text-sm">
+                                <i class="fa-regular fa-clock"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-800">${e.material_title}</h4>
+                                <span class="text-xs text-slate-500">${e.subject_title || 'Subject'}</span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs font-mono font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200">
+                                ${e.deadline.replace('T', ' ').substring(0, 16)}
+                            </span>
+                        </div>
+                    `;
+                    timeline.appendChild(item);
+                });
+            } catch (err) {}
+        }
+
+        // Reminders & Unread Badge
+        async function loadUnreadRemindersCount() {
+            try {
+                const res = await apiCall('/reminders');
+                const badge = document.getElementById('unread-reminders-badge');
+                if (res.unread_count > 0) {
+                    badge.textContent = res.unread_count;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            } catch (e) {}
+        }
+
+        async function loadReminders() {
+            const list = document.getElementById('reminders-list');
+            list.innerHTML = '<div class="text-xs text-slate-400 p-4 text-center">Loading reminders...</div>';
+
+            try {
+                const res = await apiCall('/reminders');
+                list.innerHTML = '';
+
+                if (!res.items || res.items.length === 0) {
+                    list.innerHTML = '<div class="text-xs text-slate-400 text-center py-6 bg-white rounded-xl border border-dashed border-slate-200">No active reminders</div>';
+                    return;
+                }
+
+                res.items.forEach(r => {
+                    const item = document.createElement('div');
+                    item.className = `p-4 rounded-xl border flex items-center justify-between transition ${r.is_read ? 'bg-white border-slate-200 opacity-75' : 'bg-indigo-50/60 border-indigo-200 shadow-sm'}`;
+
+                    item.innerHTML = `
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded-lg ${r.type === '1_day' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'} flex items-center justify-center text-xs">
+                                <i class="fa-solid fa-bell"></i>
+                            </div>
+                            <div>
+                                <div class="text-xs font-bold text-slate-800">${r.message}</div>
+                                <div class="text-[10px] text-slate-400">${r.type === '1_day' ? 'Urgent: Deadline tomorrow!' : 'Notice: Deadline in 7 days'}</div>
+                            </div>
+                        </div>
+                        <div>
+                            ${!r.is_read ? `
+                                <button onclick="markReminderRead('${r.id}')" class="text-xs bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-3 py-1 rounded-lg transition font-medium">
+                                    <i class="fa-solid fa-check mr-1"></i> Mark as Read
+                                </button>
+                            ` : '<span class="text-[11px] text-slate-400 font-medium"><i class="fa-solid fa-check-double text-emerald-500"></i> Read</span>'}
+                        </div>
+                    `;
+                    list.appendChild(item);
+                });
+
+                loadUnreadRemindersCount();
+            } catch (err) {}
+        }
+
+        async function markReminderRead(reminderId) {
+            try {
+                await apiCall(`/reminders/${reminderId}/read`, 'PATCH');
+                loadReminders();
+            } catch (err) {}
+        }
+
+        // Live Audit Logs
+        async function loadAuditLogs() {
+            const out = document.getElementById('audit-logs-output');
+            out.innerHTML = '<div class="text-slate-500">Fetching system audit logs...</div>';
+
+            try {
+                const res = await apiCall('/system/logs');
+                out.innerHTML = '';
+                if (!res.lines || res.lines.length === 0) {
+                    out.innerHTML = '<div class="text-slate-500">Log file is empty</div>';
+                    return;
+                }
+
+                res.lines.forEach(l => {
+                    const row = document.createElement('div');
+                    row.className = 'py-0.5 hover:bg-slate-800/80 rounded px-1';
+
+                    let color = 'text-slate-300';
+                    if (l.includes('[WARNING]')) color = 'text-amber-400';
+                    if (l.includes('[ERROR]')) color = 'text-rose-400 font-bold';
+                    if (l.includes('AUDIT:')) color = 'text-emerald-400';
+
+                    row.className += ` ${color}`;
+                    row.textContent = l;
+                    out.appendChild(row);
+                });
+            } catch (err) {}
+        }
+
+        // OpenAPI Spec Explorer
+        async function loadOpenApiSpec() {
+            const container = document.getElementById('openapi-endpoints-list');
+            container.innerHTML = '<div class="text-xs text-slate-400 p-4 text-center">Loading OpenAPI specification...</div>';
+
+            try {
+                const spec = await apiCall('/spec');
+                container.innerHTML = '';
+
+                for (const [path, methods] of Object.entries(spec.paths)) {
+                    for (const [method, details] of Object.entries(methods)) {
+                        if (!['get', 'post', 'put', 'patch', 'delete'].includes(method)) continue;
+
+                        let methodColor = 'bg-slate-100 text-slate-800';
+                        if (method === 'get') methodColor = 'bg-blue-100 text-blue-800';
+                        if (method === 'post') methodColor = 'bg-emerald-100 text-emerald-800';
+                        if (method === 'put') methodColor = 'bg-amber-100 text-amber-800';
+                        if (method === 'patch') methodColor = 'bg-purple-100 text-purple-800';
+                        if (method === 'delete') methodColor = 'bg-rose-100 text-rose-800';
+
+                        const card = document.createElement('div');
+                        card.className = 'bg-white p-3.5 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-sm font-mono text-xs';
+
+                        card.innerHTML = `
+                            <div class="flex items-center space-x-3">
+                                <span class="px-2 py-0.5 rounded font-bold uppercase ${methodColor}">${method}</span>
+                                <span class="text-slate-800 font-bold">${path}</span>
+                            </div>
+                            <div class="text-slate-500 font-sans text-xs">
+                                ${details.summary || details.description || ''}
+                            </div>
+                        `;
+                        container.appendChild(card);
+                    }
+                }
+            } catch (err) {}
+        }
+    </script>
+</body>
+</html>

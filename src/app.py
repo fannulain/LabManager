@@ -9,7 +9,7 @@ import sys
 # Ensure project root is present in sys.path when running as `python src/app.py`
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from flask import Flask, request, g
+from flask import Flask, request, g, render_template, jsonify, send_file
 from src.core.errors import register_error_handlers
 from src.core.logging_config import setup_logging, audit_log, logger
 from src.api.auth_routes import auth_bp
@@ -22,7 +22,9 @@ from src.api.reminder_routes import reminder_bp
 from src.api.extension_routes import extension_bp
 
 def create_app(config: dict = None) -> Flask:
-    app = Flask(__name__)
+    template_dir = os.path.join(os.path.dirname(__file__), "templates")
+    static_dir = os.path.join(os.path.dirname(__file__), "static")
+    app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
 
     if config:
         app.config.update(config)
@@ -44,6 +46,27 @@ def create_app(config: dict = None) -> Flask:
     app.register_blueprint(calendar_bp, url_prefix=prefix)
     app.register_blueprint(reminder_bp, url_prefix=prefix)
     app.register_blueprint(extension_bp, url_prefix=prefix)
+
+    # Web UI Dashboard & Documentation routes
+    @app.route("/")
+    def index():
+        return render_template("index.html")
+
+    @app.route("/api/v1/system/logs", methods=["GET"])
+    def get_system_logs():
+        log_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "logs", "system.log"))
+        lines = []
+        if os.path.exists(log_path):
+            with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
+                lines = f.readlines()[-60:]
+        return jsonify({"lines": [line.strip() for line in lines if line.strip()]}), 200
+
+    @app.route("/api/v1/spec", methods=["GET"])
+    def get_openapi_spec():
+        spec_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "spec", "openapi.json"))
+        if os.path.exists(spec_path):
+            return send_file(spec_path, mimetype="application/json")
+        return jsonify({"error": "Specification file not found"}), 404
 
     @app.before_request
     def log_incoming_request():
